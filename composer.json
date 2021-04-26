@@ -1,0 +1,41 @@
+{
+	"name" : "orkan/winamp",
+	"description" : "Winamp Media Library CLI tools",
+	"keywords": ["winamp", "playlist", "tool", "cli", "console", "bulk", "batch", "mp3", "m3u", "move", "relocate"],
+	"homepage" : "https://github.com/orkan/winamp-src",
+	"authors" : [
+		{
+			"name" : "Orkan",
+			"role" : "Lead",
+			"email" : "orkans@gmail.com"
+		}
+	],
+    "require": {
+        "symfony/console": "^5.2",
+        "symfony/monolog-bridge": "^5.2",
+		"james-heinrich/getid3": "^1.9",
+		"symfony/finder": "^5.2",
+        "orkan/utils": "^1.5"
+    },
+	"autoload" : {
+		"psr-4" : {
+			"Orkan\\Winamp\\" : "src"
+		}
+	},
+	"autoload-dev" : {
+		"psr-4" : {
+			"Orkan\\Winamp\\Tests\\" : "tests"
+		}
+	},
+    "bin": [
+        "winamp"
+    ],
+    "config": {
+        "bin-dir": "./"
+    },
+	"extra" : {
+		"branch-alias" : {
+			"dev-master" : "1.0.x-dev"
+		}
+	}
+}
