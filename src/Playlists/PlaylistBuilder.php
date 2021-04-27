@@ -87,7 +87,8 @@ class PlaylistBuilder
 
 	/**
 	 * @param string $file Path to Playlist file or just filename in current working dir
-	 * @param M3UInterface $Tagger Id3 tagger to generate #EXTM3U entries in final playlist file (optional)
+	 * @param string $codePage *.m3u files encoding
+	 * @param M3UInterface $Tagger (optional) Id3 tagger to generate #EXTM3U entries in final playlist file
 	 */
 	public function __construct( string $file, string $codePage = 'ASCII', M3UInterface $Tagger = null )
 	{

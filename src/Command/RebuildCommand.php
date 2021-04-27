@@ -178,7 +178,7 @@ EOT );
 			// ---------------------------------------------------------------------------------------------------------
 			// PRE Duplicates
 			if ( $input->getOption( 'dupes' ) ) {
-				$this->Logger->notice( 'Removing duplicates. Part 1/2...' );
+				$this->Logger->notice( 'Removing duplicates...' );
 				$dupes = $Playlist->duplicates( true );
 
 				if ( $i = count( $dupes ) ) {
@@ -268,7 +268,7 @@ EOT );
 										$this->Logger->warning( 'User Exit' );
 										return Command::FAILURE;
 									default:
-										$this->Logger->debug( sprintf( 'Skipping "%s"', $item['line'] ) );
+										$this->Logger->notice( 'Skipping...' );
 										continue 2; // break & continue ... foreach mp3
 								}
 							}
@@ -314,7 +314,7 @@ EOT );
 			// POST Duplicates
 			// Some paths might be resolved to same location!
 			if ( $input->getOption( 'dupes' ) ) {
-				$this->Logger->notice( 'Removing duplicates. Part 2/2...' );
+				$this->Logger->notice( 'Removing duplicates...' );
 				$dupes = $Playlist->duplicates( true );
 
 				if ( $i = count( $dupes ) ) {
@@ -360,7 +360,7 @@ EOT );
 			// ---------------------------------------------------------------------------------------------------------
 			// Save
 			$isDry = $input->getOption( 'dry-run' );
-			$toAscii = $input->getOption( 'plain' );
+			$toAscii = $input->getOption( 'plain' ) || 'm3u' == $Playlist->type();
 			$isForce = $input->getOption( 'force' ) || $toAscii && 'm3u8' == $Playlist->type();
 			$isBackup = ! $input->getOption( 'no-backup' );
 

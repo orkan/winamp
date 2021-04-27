@@ -18,7 +18,7 @@ if ( ! in_array( PHP_SAPI, [ 'cli', 'phpdbg', 'embed' ], true ) ) {
 	fwrite( STDERR, sprintf( "Warning:\nThe console should be invoked via the CLI version of PHP, not the %s SAPI\n\n", PHP_SAPI ) );
 }
 
-foreach ( [ __DIR__ . '/../../../autoload.php', __DIR__ . '/../vendor/autoload.php', __DIR__ . '/vendor/autoload.php' ] as $file ) {
+foreach ( [ __DIR__ . '/../../../autoload.php', __DIR__ . '/../../vendor/autoload.php', __DIR__ . '/vendor/autoload.php' ] as $file ) {
 	if ( file_exists( $file ) ) {
 		define( 'WINAMP_COMPOSER_INSTALL', $file );
 		break;
