@@ -271,10 +271,10 @@ class PlaylistBuilder
 	 *
 	 * @param bool $write Set to false for dry-run
 	 * @param bool $backup Make a backup of original playlist?
-	 * @param bool $toAscii Convert chars to ASCII?
+	 * @param string $format Force output format. Default is to use input format
 	 * @return array File paths of saved files
 	 */
-	public function save( bool $write = true, bool $backup = true, bool $toAscii = false ): array
+	public function save( bool $write = true, bool $backup = true, string $format = '' ): array
 	{
 
 		// -------------------------------------------------------------------------------------------------------------
@@ -302,8 +302,10 @@ class PlaylistBuilder
 
 		// -------------------------------------------------------------------------------------------------------------
 		// Save
-		$file = sprintf( '%s.%s', Utils::fileNoExt( $this->file ), $toAscii ? 'm3u' : 'm3u8' );
 		$back = '';
+		$ext = $format ?: $this->type();
+		$toAscii = 'm3u' == $ext;
+		$file = sprintf( '%s.%s', Utils::fileNoExt( $this->file ), $ext );
 
 		if ( $toAscii ) {
 			$lines = iconv( 'UTF-8', $this->codePage, $lines ); // to *.m3u

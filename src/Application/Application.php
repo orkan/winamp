@@ -17,8 +17,8 @@ use Symfony\Component\Console\Application as BaseApplication;
 class Application extends BaseApplication
 {
 	const APP_NAME = 'Winamp Media Library CLI tools by Orkan';
-	const APP_VERSION = 'v1.1.0';
-	const RELEASE_DATE = 'Tue, 27 Apr 2021 13:40:59 +02:00';
+	const APP_VERSION = 'v2.0.0';
+	const RELEASE_DATE = 'Tue, 27 Apr 2021 17:39:46 +02:00';
 
 	/**
 	 * @link https://patorjk.com/software/taag/#p=display&v=0&f=Graffiti&t=Winamp

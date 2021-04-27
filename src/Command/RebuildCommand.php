@@ -26,17 +26,18 @@ class RebuildCommand extends Command
 	/**
 	 * Defaults for input options
 	 */
+	private $outputExt = [ 'm3u', 'm3u8' ];
+	private $inputExt = [ 'xml', 'm3u', 'm3u8' ];
+	private $inputExtStr;
 	private $defaultEsc = '[0-9]';
-	private $defaultExt = [ 'xml', 'm3u', 'm3u8' ];
-	private $implodeExt;
 
 	protected function configure()
 	{
-		$this->implodeExt = '*.' . implode( ', *.', $this->defaultExt );
+		$this->inputExtStr = '*.' . implode( ', *.', $this->inputExt );
 
 		$this->setDescription( 'Rebuild playlists' );
 		$this->setHelp( <<<EOT
-Scan playlist file ({$this->implodeExt}) and validate path entries.
+Scan playlist file ({$this->inputExtStr}) and validate path entries.
 --------------------------------------------------------------------
 
 Each time you change location of your media files, your playlists won't
@@ -103,13 +104,13 @@ location in [Media folder]
 EOT );
 
 		$this->addArgument( 'media-folder', InputArgument::REQUIRED, '[Media folder] - Media files location' );
-		$this->addOption( 'infile', 'i', InputOption::VALUE_REQUIRED, "Winamp playlist.xml or single playlist file ($this->implodeExt)", $this->Factory->cfg( 'winamp_playlists' ) );
+		$this->addOption( 'infile', 'i', InputOption::VALUE_REQUIRED, "Winamp playlist.xml or single playlist file ($this->inputExtStr)", $this->Factory->cfg( 'winamp_playlists' ) );
 		$this->addOption( 'esc', 'e', InputOption::VALUE_REQUIRED, '[Escape] sub-folder inside [Media folder]', $this->defaultEsc );
 		$this->addOption( 'sort', null, InputOption::VALUE_NONE, 'Sort playlist' );
 		$this->addOption( 'dupes', null, InputOption::VALUE_NONE, 'Remove duplicates' );
 		$this->addOption( 'remove', null, InputOption::VALUE_NONE, 'Remove missing paths' );
 		$this->addOption( 'no-backup', null, InputOption::VALUE_NONE, 'Do not backup modified playlists' );
-		$this->addOption( 'plain', null, InputOption::VALUE_NONE, 'Save as *.m3u (implicitly enables --force for *.m3u8 files)' );
+		$this->addOption( 'format', 'f', InputOption::VALUE_REQUIRED, 'Output format: m3u | m3u8 (implicitly enables --force when input format differs)' );
 		$this->addOption( 'no-ext', null, InputOption::VALUE_NONE, 'Skip all #EXTINF lines (will not read Id3 tags from media files)' );
 		$this->addOption( 'force', null, InputOption::VALUE_NONE, 'Refresh playlist file even if nothing has been modified, ie. refreshes #M3U tags' );
 
@@ -127,8 +128,8 @@ EOT );
 
 		$infile = $input->getOption( 'infile' );
 
-		if ( ! in_array( Utils::fileExt( $infile ), $this->defaultExt ) ) {
-			throw new \InvalidArgumentException( sprintf( 'Input file "%s" not in supproted extensions: %s', $infile, $this->implodeExt ) );
+		if ( ! in_array( Utils::fileExt( $infile ), $this->inputExt ) ) {
+			throw new \InvalidArgumentException( sprintf( 'Input file "%s" not in supproted extensions: %s', $infile, $this->inputExtStr ) );
 		}
 
 		/* @formatter:off */
@@ -155,6 +156,10 @@ EOT );
 
 		if ( ! is_dir( $escapeDir = Utils::pathToAbs( $mediaDir . '/' . $input->getOption( 'esc' ), getcwd() ) ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Escape folder "%s" not found in "%s"', $input->getOption( 'esc' ), $mediaDir ) );
+		}
+
+		if ( ! empty( $format = $input->getOption( 'format' ) ) && ! in_array( $format, $this->outputExt ) ) {
+			throw new \InvalidArgumentException( sprintf( 'Unsuported output format "%s"', $format ) );
 		}
 
 		$this->Logger->debug( 'Resolved [Media folder] : ' . $mediaDir );
@@ -358,18 +363,22 @@ EOT );
 			/* @formatter:on */
 
 			// ---------------------------------------------------------------------------------------------------------
-			// Save
+			// Logic...
 			$isDry = $input->getOption( 'dry-run' );
-			$toAscii = $input->getOption( 'plain' ) || 'm3u' == $Playlist->type();
-			$isForce = $input->getOption( 'force' ) || $toAscii && 'm3u8' == $Playlist->type();
 			$isBackup = ! $input->getOption( 'no-backup' );
+			$outFormat = $input->getOption( 'format' ) ?: $Playlist->type();
 
+			$isForce = $input->getOption( 'force' );
+			$isForce |= $outFormat != $Playlist->type();
+
+			// ---------------------------------------------------------------------------------------------------------
+			// Save
 			if ( $Playlist->isDirty() || $isForce ) {
 
 				$force_str = ! $Playlist->isDirty() && $isForce ? ' +force' : '';
 				$backup_str = $isBackup ? ' +backup' : '';
 
-				$save = $Playlist->save( ! $isDry, $isBackup, $toAscii );
+				$save = $Playlist->save( ! $isDry, $isBackup, $outFormat );
 
 				$this->Logger->notice( sprintf( "Saved [%s]%s%s", basename( $save['file'] ), $force_str, $backup_str ) );
 				$this->Logger->info( 'File: ' . $save['file'] );
