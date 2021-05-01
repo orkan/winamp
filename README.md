@@ -50,7 +50,7 @@ Example:
 PHP  ^7.3
 
 ### Author
-Orkan - orkans@gmail.com - https://github.com/orkan
+[Orkan](https://github.com/orkan)
 
 ### License
 GNU GPLv3

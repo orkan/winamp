@@ -18,6 +18,9 @@
 		"symfony/finder": "^5.2",
 		"orkan/utils": "^1.5"
 	},
+	"require-dev": {
+		"orkan/utils": "^1.5.2"
+	},
 	"autoload" : {
 		"psr-4" : {
 			"Orkan\\Winamp\\" : "src"

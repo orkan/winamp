@@ -41,18 +41,14 @@ Scan playlist file ({$this->inputExtStr}) and validate path entries.
 --------------------------------------------------------------------
 
 Each time you change location of your media files, your playlists won't
-match the changes and you'll end up with invalid paths. This tool tries 
-to help you arrange the files alphabetically into subdirectories so that
-it can easly find the path to any file in your playlists and modify it
-accordingly.
+match the changes and you'll end up with invalid paths.
 
-Note:
-You should move all your media files to propper locations before running
-this command (see Media folder).
+This tool tries to find the correct location for your media files by testing 
+the first letter and assigning it to the correct subfolder in the [Media folder].
 
-Although it is possible to put the files in other locations than default
-[Media folder], but then you will have to enter the mapping manually
-every time you run this tool (see Relocate).
+However, it is not required to use the [Media folder] structure described here,
+but then you will have to manually enter correct location of each missing file
+or enter a new folder path where they were moved to (see Relocate)
 
 ---------
 Playlists
@@ -68,7 +64,7 @@ There are 4 stages of validating each playlist entry:
   d) Ask for an action:
 
      [1] Update - enter path manualy for current entry
-     [2] Relocate - mass change path for all files from current location
+     [2] Relocate - change path for all remaining files from current entry's location
      [3] Remove - remove current entry
      [4] Skip (default) - leave current entry and skip to next one
      [5] Exit - return to prompt line
@@ -207,7 +203,7 @@ EOT );
 					$this->Logger->debug( sprintf( 'Not found (#1): "%s" (at %s)', $item['line'], $Playlist->home() ) );
 
 					// -------------------------------------------------------------------------------------------------
-					// #2: File is missing in $pathMap?
+					// #2: File is missing in $dirMap?
 					$basePath = dirname( $item['line'] );
 
 					if ( ! isset( $dirMap[$basePath] ) || ! $itemPath = realpath( "{$dirMap[$basePath]}/{$item['name']}" ) ) {
@@ -221,7 +217,7 @@ EOT );
 
 						if ( ! $itemPath = realpath( $dirDesPath ) ) {
 
-							$this->Logger->debug( sprintf( 'Not found (#3): not in match dir "%s"', $dirDesPath ) );
+							$this->Logger->debug( sprintf( 'Not found (#3): not in Media folder "%s"', $dirDesPath ) );
 
 							// -----------------------------------------------------------------------------------------
 							// Missing in all locations - Ask user!
@@ -303,8 +299,8 @@ EOT );
 				// Update
 				if ( $itemPath != $item['line'] ) {
 					$this->Logger->info( 'Update path:' );
-					$this->Logger->info( sprintf( '<-- %s', $item['line'] ) );
-					$this->Logger->info( sprintf( '--> %s', $itemPath ) );
+					$this->Logger->info( '<--' . $item['line'] );
+					$this->Logger->info( '-->' . $itemPath );
 					$Playlist->path( $key, $itemPath );
 				}
 

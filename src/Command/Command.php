@@ -105,8 +105,8 @@ class Command extends BaseCommand
 	 */
 	protected function moreOptions()
 	{
-		$this->addOption( 'code-page', null, InputOption::VALUE_REQUIRED, 'Windows code page used to read/save *.m3u files', $this->codePage );
-		$this->addOption( 'user-cfg', null, InputOption::VALUE_REQUIRED, 'User config', false );
+		$this->addOption( 'code-page', 'c', InputOption::VALUE_REQUIRED, 'Windows code page used to read/save *.m3u files', $this->codePage );
+		$this->addOption( 'user-cfg', 'u', InputOption::VALUE_REQUIRED, 'User config', false );
 		$this->addOption( 'dry-run', null, InputOption::VALUE_NONE, 'Outputs the operations but will not save any files (implicitly enables --verbose)' );
 		$this->addOption( 'no-log', null, InputOption::VALUE_NONE, 'Turns off logging to file' );
 		$this->addOption( 'no-debug', null, InputOption::VALUE_NONE, 'Turns off debug info. Also resets APP_DEBUG environment variable' );
