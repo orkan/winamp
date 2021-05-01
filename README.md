@@ -1,9 +1,14 @@
 # Winamp Media Library CLI tools
 Fixes invalid entries in M3U playlists. 
 
-Each time you change location of your media files, your playlists won't match the changes and you'll end up with invalid paths. This tool tries to help you arrange the files alphabetically into subdirectories so that it can easly find the path to any file in your playlists and modify it accordingly.
+Every time you change the location of your media files, the playlists
+won't take those changes and you will get the wrong paths. This tool tries
+to find missing entries in all your playlists and update it accordingly.
 
-This tool was originally designed to work with Winamp playlists only (hence the name) but most of the commands will work with regular M3U playlists as well.
+For best results, place the media files in alphabetical subfolders
+(see Media folder). In the case of a different folder layout,
+semi-automatic methods have been implemented to help you fix invalid
+entries in playlists (see Validation).
 
 ## Installation
 `$ composer require orkan/winamp`
@@ -13,7 +18,10 @@ This tool was originally designed to work with Winamp playlists only (hence the 
 Displays Winamp playlists
 
 ### > vendor\bin\winamp rebuild
-Will scan and fix all entries from Winamp playlists.xml or any provided playlist file (*.m3u). There are 4 stages of validating each entry:
+Scan and fix all entries from Winamp playlists.xml or any provided playlist file (*.m3u). 
+
+## Validation
+There are 4 stages of validating each playlist entry:
 
 ```
 a) Check that the entry points to an existing file. If not, then:
@@ -26,6 +34,9 @@ d) Ask for an action:
    [4] Skip (default) - don't change anything and skip to next entry
    [5] Exit - return to prompt line
 ```
+
+For more information and options type: `vendor\bin\winamp rebuild --help`
+
 ## Media folder
 The user [Media folder] structure should be organized into sub folders each named with Regular Expressions notation, describing letters range of filenames they are holding, ie. [A-Z] or [0-9].
 

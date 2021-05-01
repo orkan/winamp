@@ -40,21 +40,20 @@ class RebuildCommand extends Command
 Scan playlist file ({$this->inputExtStr}) and validate path entries.
 --------------------------------------------------------------------
 
-Each time you change location of your media files, your playlists won't
-match the changes and you'll end up with invalid paths.
+Every time you change the location of your media files, the playlists
+won't take those changes and you will get the wrong paths. This tool tries
+to find missing entries in all your playlists and update it accordingly.
 
-This tool tries to find the correct location for your media files by testing 
-the first letter and assigning it to the correct subfolder in the [Media folder].
+For best results, place the media files in alphabetical subfolders
+(see Media folder). In the case of a different folder layout,
+semi-automatic methods have been implemented to help you fix invalid
+entries in playlists (see Validation).
 
-However, it is not required to use the [Media folder] structure described here,
-but then you will have to manually enter correct location of each missing file
-or enter a new folder path where they were moved to (see Relocate)
-
----------
-Playlists
----------
-Will scan all playlists from Winamp Media Library playlists.xml or any
-provided playlist file. Will replace all paths to absolute ones (see Q&A).
+----------
+Validation
+----------
+Scan all playlists from Winamp Media Library playlists.xml or any
+provided playlist file and replace all paths to absolute ones (see Q&A).
 
 There are 4 stages of validating each playlist entry:
 
