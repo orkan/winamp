@@ -5,10 +5,9 @@ Every time you change the location of your media files, the playlists
 won't take those changes and you will get the wrong paths. This tool tries
 to find missing entries in all your playlists and update it accordingly.
 
-For best results, place the media files in alphabetical subfolders
+For best results, place your media files in alphabetical subfolders
 (see Media folder). In the case of a different folder layout,
-semi-automatic methods have been implemented to help you fix invalid
-entries in playlists (see Validation).
+semi-automatic methods have been implemented (see Validation).
 
 ## Installation
 `$ composer require orkan/winamp`

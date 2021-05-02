@@ -26,31 +26,37 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class Factory
 {
-	protected $cfg;
+	protected $cfg = [];
 	protected $Logger;
 
 	/**
-	 *
+	 * Pass configuration via file, cmd or both
 	 */
 	public function __construct( array $cfg = [] )
 	{
-		$this->cfg = $cfg;
+		$usr = ( new ArgvInput() )->getParameterOption( [ '--user-cfg', '-u' ], false, true );
+		$usr = $usr ? require $usr : [];
+		$this->cfg = array_merge( $cfg, $usr );
 	}
 
 	/**
 	 * Set/Get config value
 	 *
-	 * @param string $key
+	 * @param string|null $key
 	 * @param string|null $val
 	 * @return mixed
 	 */
-	public function cfg( string $key, $val = null )
+	public function cfg( string $key = null, $val = null )
 	{
+		if ( ! isset( $key ) ) {
+			return $this->cfg;
+		}
+
 		if ( isset( $val ) ) {
 			$this->cfg[$key] = $val;
 		}
 
-		return $this->cfg[$key];
+		return $this->cfg[$key] ?? 'n/a';
 	}
 
 	/**

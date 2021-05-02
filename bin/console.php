@@ -39,17 +39,12 @@ if ( $Input->hasParameterOption( '--no-debug', true ) ) {
 }
 define( 'DEBUG', getenv( 'APP_DEBUG' ) ? true : false );
 
-// ---------------------------------------------------------------------------------------------------------------------
-// Config
-$cfg = ( new ArgvInput() )->getParameterOption( '--user-cfg', false, true );
-$cfg = $cfg ? require $cfg : [];
-$Factory = new Factory( $cfg );
-
 unset( $file );
 unset( $Input );
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Run
+$Factory = new Factory();
 $Application = new Application( $Factory );
 $Application->setCatchExceptions( false );
 $Application->setAutoExit( false );

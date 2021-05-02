@@ -46,8 +46,6 @@ class ShowCommand extends Command
 
 		$vals = implode( ' | ', $this->format );
 		$this->addOption( 'format', 'f', InputOption::VALUE_REQUIRED, "Display format: {$vals}.", $this->format[0] );
-
-		parent::moreOptions();
 	}
 
 	protected function execute( InputInterface $input, OutputInterface $output )

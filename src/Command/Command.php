@@ -25,9 +25,10 @@ use Symfony\Component\Finder\Finder;
  */
 class Command extends BaseCommand
 {
+	protected static $defaultName = 'common';
+
 	protected $input;
 	protected $output;
-	protected $codePage;
 
 	/**
 	 * List of subdirs in [Media folder]
@@ -56,15 +57,11 @@ class Command extends BaseCommand
 		$this->Logger = $Factory->logger(); // just a shorthand
 		$this->Factory = $Factory;
 
-		$this->codePage = 'Windows-' . explode( '.', setlocale( LC_CTYPE, 0 ) )[1];
 		parent::__construct();
 	}
 
 	/**
 	 * Get default config
-	 * Tip:
-	 * See also other services for default config values.
-	 * All these can be replaced by array passed to constuctor
 	 *
 	 * @return array Default config
 	 */
@@ -72,11 +69,7 @@ class Command extends BaseCommand
 	{
 		/* @formatter:off */
 		return [
-			'winamp_playlists' => getenv( 'APPDATA' ) . '\\Winamp\\Plugins\\ml\\playlists.xml',
-
-			/*
-			 * Services:
-			 */
+			// Services:
 			'M3UTagger'       => 'Orkan\\Winamp\\Tags\\M3UTagger',
 			'PlaylistBuilder' => 'Orkan\\Winamp\\Playlists\\PlaylistBuilder',
 		];
@@ -100,19 +93,6 @@ class Command extends BaseCommand
 	}
 
 	/**
-	 * Add global options to all derived Commands
-	 * @see \Symfony\Component\Console\Command\Command::configure()
-	 */
-	protected function moreOptions()
-	{
-		$this->addOption( 'code-page', 'c', InputOption::VALUE_REQUIRED, 'Windows code page used to read/save *.m3u files', $this->codePage );
-		$this->addOption( 'user-cfg', 'u', InputOption::VALUE_REQUIRED, 'User config', false );
-		$this->addOption( 'dry-run', null, InputOption::VALUE_NONE, 'Outputs the operations but will not save any files (implicitly enables --verbose)' );
-		$this->addOption( 'no-log', null, InputOption::VALUE_NONE, 'Turns off logging to file' );
-		$this->addOption( 'no-debug', null, InputOption::VALUE_NONE, 'Turns off debug info. Also resets APP_DEBUG environment variable' );
-	}
-
-	/**
 	 * {@inheritDoc}
 	 */
 	protected function execute( InputInterface $input, OutputInterface $output )
@@ -123,6 +103,8 @@ class Command extends BaseCommand
 
 		$this->input = $input;
 		$this->output = $output;
+
+		return Command::FAILURE;
 	}
 
 	protected function confirm( $question )

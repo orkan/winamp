@@ -44,16 +44,15 @@ Every time you change the location of your media files, the playlists
 won't take those changes and you will get the wrong paths. This tool tries
 to find missing entries in all your playlists and update it accordingly.
 
-For best results, place the media files in alphabetical subfolders
+For best results, place your media files in alphabetical subfolders
 (see Media folder). In the case of a different folder layout,
-semi-automatic methods have been implemented to help you fix invalid
-entries in playlists (see Validation).
+semi-automatic methods have been implemented (see Validation).
 
 ----------
 Validation
 ----------
 Scan all playlists from Winamp Media Library playlists.xml or any
-provided playlist file and replace all paths to absolute ones (see Q&A).
+single playlist file and replace all paths to absolute ones (see Q&A).
 
 There are 4 stages of validating each playlist entry:
 
@@ -108,8 +107,6 @@ EOT );
 		$this->addOption( 'format', 'f', InputOption::VALUE_REQUIRED, 'Output format: m3u | m3u8 (implicitly enables --force when input format differs)' );
 		$this->addOption( 'no-ext', null, InputOption::VALUE_NONE, 'Skip all #EXTINF lines (will not read Id3 tags from media files)' );
 		$this->addOption( 'force', null, InputOption::VALUE_NONE, 'Refresh playlist file even if nothing has been modified, ie. refreshes #M3U tags' );
-
-		parent::moreOptions();
 	}
 
 	protected function execute( InputInterface $input, OutputInterface $output )
@@ -171,7 +168,6 @@ EOT );
 
 			$this->Logger->notice( sprintf( 'Loading [%s]: %s', $playlistName, $playlistPath ) );
 
-			//$Playlist = $this->Factory->create( 'PlaylistBuilder', $playlistPath, $codePage, $Tagger );
 			$Playlist = $this->Factory->createPlaylistBuilder( $playlistPath, $codePage, $Tagger );
 			$items = $Playlist->items();
 

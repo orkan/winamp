@@ -9,6 +9,7 @@ namespace Orkan\Winamp\Application;
 use Orkan\Winamp\Command;
 use Orkan\Winamp\Factory;
 use Symfony\Component\Console\Application as BaseApplication;
+use Symfony\Component\Console\Input\InputOption;
 
 /**
  *
@@ -17,8 +18,8 @@ use Symfony\Component\Console\Application as BaseApplication;
 class Application extends BaseApplication
 {
 	const APP_NAME = 'Winamp Media Library CLI tools by Orkan';
-	const APP_VERSION = 'v2.0.2';
-	const RELEASE_DATE = 'Sat, 01 May 2021 13:38:05 +02:00';
+	const APP_VERSION = 'v2.1.0';
+	const RELEASE_DATE = 'Sun, 02 May 2021 12:05:26 +02:00';
 
 	/**
 	 * @link https://patorjk.com/software/taag/#p=display&v=0&f=Graffiti&t=Winamp
@@ -40,7 +41,42 @@ class Application extends BaseApplication
 	public function __construct( Factory $Factory )
 	{
 		parent::__construct( self::APP_NAME, self::APP_VERSION );
+
 		$this->Factory = $Factory;
+		$this->Factory->merge( $this->defaults() );
+	}
+
+	private function defaults(): array
+	{
+		/* @formatter:off */
+		return [
+			'winamp_playlists' => getenv( 'APPDATA' ) . '\\Winamp\\Plugins\\ml\\playlists.xml',
+			'code_page'        => 'Windows-' . explode( '.', setlocale( LC_CTYPE, 0 ) )[1],
+		];
+		/* @formatter:on */
+	}
+
+	/**
+	 * Insert common options here, shared by all Commands
+	 *
+	 * {@inheritDoc}
+	 * @see \Symfony\Component\Console\Application::getDefaultInputDefinition()
+	 */
+	protected function getDefaultInputDefinition()
+	{
+		$Definition = parent::getDefaultInputDefinition();
+
+		/* @formatter:off */
+		$Definition->addOptions( [
+			new InputOption( 'user-cfg' ,  'u', InputOption::VALUE_REQUIRED, 'User config (ie. logger settings)', false ),
+			new InputOption( 'code-page',  'c', InputOption::VALUE_REQUIRED, 'M3U files encoding', $this->Factory->cfg( 'code_page' ) ),
+			new InputOption( 'dry-run'  , null, InputOption::VALUE_NONE    , 'Outputs the operations but will not save any files (implicitly enables --verbose)' ),
+			new InputOption( 'no-log'   , null, InputOption::VALUE_NONE    , 'Turns off logging to file' ),
+			new InputOption( 'no-debug' , null, InputOption::VALUE_NONE    , 'Turns off debug info. Also resets APP_DEBUG environment variable' ),
+		]);
+		/* @formatter:on */
+
+		return $Definition;
 	}
 
 	/**
