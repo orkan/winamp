@@ -11,7 +11,6 @@ use Orkan\Winamp\Factory;
 use Symfony\Bridge\Monolog\Handler\ConsoleHandler;
 use Symfony\Component\Console\Command\Command as BaseCommand;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Finder\Finder;
@@ -50,6 +49,10 @@ class Command extends BaseCommand
 	// =========================================================================================================
 	// Part A: Methods to extend Command object
 	// =========================================================================================================
+
+	/**
+	 * @param Factory $Factory
+	 */
 	public function __construct( Factory $Factory )
 	{
 		$Factory->merge( $this->defaults() );
@@ -92,8 +95,10 @@ class Command extends BaseCommand
 		}
 	}
 
+
 	/**
 	 * {@inheritDoc}
+	 * @see \Symfony\Component\Console\Command\Command::execute()
 	 */
 	protected function execute( InputInterface $input, OutputInterface $output )
 	{

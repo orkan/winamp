@@ -31,6 +31,10 @@ class ShowCommand extends Command
 	private $dir = [ 'asc', 'desc' ];
 	private $format = [ 'raw', 'formated' ];
 
+	/**
+	 * {@inheritDoc}
+	 * @see \Symfony\Component\Console\Command\Command::configure()
+	 */
 	protected function configure()
 	{
 		$this->setDescription( 'Display Winamp playlists' );
@@ -48,6 +52,10 @@ class ShowCommand extends Command
 		$this->addOption( 'format', 'f', InputOption::VALUE_REQUIRED, "Display format: {$vals}.", $this->format[0] );
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see \Orkan\Winamp\Command\Command::execute()
+	 */
 	protected function execute( InputInterface $input, OutputInterface $output )
 	{
 		$this->Logger->notice( '=================' );

@@ -31,6 +31,25 @@ class RebuildCommand extends Command
 	private $inputExtStr;
 	private $defaultEsc = '[0-9]';
 
+	/**
+	 * Mapped locations
+	 *
+	 * @var array
+	 */
+	private $dirMap = [];
+
+	/**
+	 * Regex for new file names
+	 *
+	 * @var array
+	 */
+	private $regMap = [];
+
+	/**
+	 *
+	 * {@inheritDoc}
+	 * @see \Symfony\Component\Console\Command\Command::configure()
+	 */
 	protected function configure()
 	{
 		$this->inputExtStr = '*.' . implode( ', *.', $this->inputExt );
@@ -54,18 +73,20 @@ Validation
 Scan all playlists from Winamp Media Library playlists.xml or any
 single playlist file and replace all paths to absolute ones (see Q&A).
 
-There are 4 stages of validating each playlist entry:
+There are 5 steps to validate each playlist entry:
 
   a) Check that the entry is pointing to an existing file. If not, then:
-  b) Check that file exists in [Media folder] by testing the first letter. If not, then:
-  c) Check that file exists in mapped location (see Relocate). If not, then:
-  d) Ask for an action:
+  b) Check that file exists in mapped location (see Relocate). If not, then:
+  c) Check that file exists after renaming (see Rename). If not, then:
+  d) Check that file exists in [Media folder] by testing the first letter. If not, then:
+  e) Ask for an action:
 
      [1] Update - enter path manualy for current entry
      [2] Relocate - change path for all remaining files from current entry's location
-     [3] Remove - remove current entry
-     [4] Skip (default) - leave current entry and skip to next one
-     [5] Exit - return to prompt line
+     [3] Rename - use regular expression to rename filename part for current and remaining entries
+     [4] Remove - remove current entry
+     [5] Skip (default) - leave current entry and skip to next one
+     [6] Exit - return to prompt line
 
 ------------
 Media folder
@@ -109,6 +130,10 @@ EOT );
 		$this->addOption( 'force', null, InputOption::VALUE_NONE, 'Refresh playlist file even if nothing has been modified, ie. refreshes #M3U tags' );
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see \Orkan\Winamp\Command\Command::execute()
+	 */
 	protected function execute( InputInterface $input, OutputInterface $output )
 	{
 		parent::execute( $input, $output );
@@ -146,7 +171,7 @@ EOT );
 			throw new \InvalidArgumentException( sprintf( 'Media folder "%s" not found in "%s"', $input->getArgument( 'media-folder' ), getcwd() ) );
 		}
 
-		if ( ! is_dir( $escapeDir = Utils::pathToAbs( $mediaDir . '/' . $input->getOption( 'esc' ), getcwd() ) ) ) {
+		if ( ! is_dir( $escDir = Utils::pathToAbs( $mediaDir . '/' . $input->getOption( 'esc' ), getcwd() ) ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Escape folder "%s" not found in "%s"', $input->getOption( 'esc' ), $mediaDir ) );
 		}
 
@@ -155,11 +180,10 @@ EOT );
 		}
 
 		$this->Logger->debug( 'Resolved [Media folder] : ' . $mediaDir );
-		$this->Logger->debug( 'Resolved [Escape folder]: ' . $escapeDir );
+		$this->Logger->debug( 'Resolved [Escape folder]: ' . $escDir );
 
 		$Tagger = $input->getOption( 'no-ext' ) ? null : $this->Factory->createM3UTagger();
 		$codePage = $input->getOption( 'code-page' ); // For *.m3u files only
-		$dirMap = []; // Mass replace paths
 
 		// =============================================================================================================
 		// Each playlist
@@ -190,94 +214,33 @@ EOT );
 			// =========================================================================================================
 			foreach ( $Playlist->items() as $key => $item ) {
 
-				// -------------------------------------------------------------------------------------------------
-				// #1: File is missing in original location?
-				// Wath out for realpath() - also returns dir paths or current dir for empty arg!
-				if ( ! $itemPath = Utils::pathToAbs( $item['line'], $Playlist->home() ) ) {
+				/*
+				 * Try to find propper path to media file with different methods...
+				 * Note, we cannot join multiple methods here, like: Relocate + Rename
+				 * A workaround would be to create master method that would join both procedures
+				 *
+				 * @formatter:off */
+				$itemPath =
+					$this->pathAbs( $item, $Playlist->home() ) ?:
+					$this->pathRelocate( $item ) ?:
+					$this->pathRename( $item ) ?:
+					$this->pathMedia( $item, $mediaDir, $escDir ) ?:
+					$this->pathQuestion( $item, $input, $output ) ?:
+					'';
+				/* @formatter:on */
 
-					$this->Logger->debug( sprintf( 'Not found (#1): "%s" (at %s)', $item['line'], $Playlist->home() ) );
-
-					// -------------------------------------------------------------------------------------------------
-					// #2: File is missing in $dirMap?
-					$basePath = dirname( $item['line'] );
-
-					if ( ! isset( $dirMap[$basePath] ) || ! $itemPath = realpath( "{$dirMap[$basePath]}/{$item['name']}" ) ) {
-
-						$this->Logger->debug( sprintf( 'Not found (#2): no path mapping for "%s"', $basePath ) );
-
-						// ---------------------------------------------------------------------------------------------
-						// #3: File is missing in Media dir?
-						$dirDes = $this->matchDir( $mediaDir, $item['name'] ) ?: $input->getOption( 'esc' );
-						$dirDesPath = "{$mediaDir}/{$dirDes}/{$item['name']}";
-
-						if ( ! $itemPath = realpath( $dirDesPath ) ) {
-
-							$this->Logger->debug( sprintf( 'Not found (#3): not in Media folder "%s"', $dirDesPath ) );
-
-							// -----------------------------------------------------------------------------------------
-							// Missing in all locations - Ask user!
-							if ( ! $removeMissing = $input->getOption( 'remove' ) ) {
-
-								$this->Logger->notice( 'Invalid path: ' . $item['line'] );
-
-								/* @formatter:off */
-								$question = new ChoiceQuestion( 'Please select an action:', [
-									1 => 'Update',
-									2 => 'Relocate',
-									3 => 'Remove',
-									4 => 'Skip',
-									5 => 'Exit',
-								], 4 );
-								/* @formatter:on */
-
-								$helper = $this->getHelper( 'question' );
-								switch ( $helper->ask( $input, $output, $question ) )
-								{
-									case 'Update':
-										$question = new Question( 'New path: ' );
-										$question->setValidator( function ( $answer ) {
-											if ( ! is_file( $answer ) ) {
-												throw new \InvalidArgumentException( 'File not found! ' );
-											}
-											return $answer;
-										} );
-										$itemPath = $helper->ask( $input, $output, $question );
-										$this->Logger->debug( sprintf( 'New path "%s"', $itemPath ) );
-										break;
-									case 'Relocate':
-										$question = new Question( sprintf( 'Replace all occurences of "%s" to: ', $basePath ) );
-										$question->setValidator( function ( $answer ) use ($item ) {
-											if ( ! is_file( $path = "{$answer}/{$item['name']}" ) ) {
-												throw new \InvalidArgumentException( sprintf( 'Not found "%s"', $path ) );
-											}
-											return $answer;
-										} );
-										$dirMap[$basePath] = $helper->ask( $input, $output, $question );
-										$itemPath = realpath( "{$dirMap[$basePath]}/{$item['name']}" );
-										$this->Logger->debug( sprintf( 'Map path "%s" to "%s"', $basePath, $dirMap[$basePath] ) );
-										$this->Logger->debug( sprintf( 'Rename "%s" to "%s"', $item['line'], $itemPath ) );
-										break;
-									case 'Remove':
-										$removeMissing = true;
-										break;
-									case 'Exit':
-										$this->Logger->warning( 'User Exit' );
-										return Command::FAILURE;
-									default:
-										$this->Logger->notice( 'Skipping...' );
-										continue 2; // break & continue ... foreach mp3
-								}
-							}
-
-							// -----------------------------------------------------------------------------------------
-							// Remove
-							if ( $removeMissing ) {
-								$this->Logger->debug( sprintf( 'Remove "%s" from [%s] (%s)', $item['line'], $playlistName, $playlistPath ) );
-								$Playlist->remove( $key );
-								continue;
-							}
-						}
-					}
+				if ( 'Skip' == $itemPath ) {
+					$this->Logger->notice( 'Skipping...' );
+					continue;
+				}
+				if ( 'Remove' == $itemPath ) {
+					$this->Logger->debug( sprintf( 'Removed "%s" from [%s] (%s)', $item['line'], $playlistName, $playlistPath ) );
+					$Playlist->remove( $key );
+					continue;
+				}
+				if ( 'Exit' == $itemPath ) {
+					$this->Logger->warning( 'User Exit' );
+					return Command::FAILURE;
 				}
 
 				if ( ! is_file( $itemPath ) ) {
@@ -292,10 +255,11 @@ EOT );
 
 				// -----------------------------------------------------------------------------------------------------
 				// Update
-				if ( $itemPath != $item['line'] ) {
+				$itemPath = realpath( $itemPath );
+				if ( $item['line'] != $itemPath ) {
 					$this->Logger->info( 'Update path:' );
-					$this->Logger->info( '<--' . $item['line'] );
-					$this->Logger->info( '-->' . $itemPath );
+					$this->Logger->info( '<-- ' . $item['line'] );
+					$this->Logger->info( '--> ' . $itemPath );
 					$Playlist->path( $key, $itemPath );
 				}
 
@@ -304,7 +268,8 @@ EOT );
 				// =====================================================================================================
 			}
 
-			count( $dirMap ) && $this->Logger->debug( 'Relocation MAP: ' . Utils::print_r( $dirMap ) );
+			count( $this->dirMap ) && $this->Logger->debug( 'Relocate MAP: ' . Utils::print_r( $this->dirMap ) );
+			count( $this->regMap ) && $this->Logger->debug( 'Rename MAP: ' . Utils::print_r( $this->regMap ) );
 
 			// ---------------------------------------------------------------------------------------------------------
 			// POST Duplicates
@@ -385,5 +350,185 @@ EOT );
 		}
 
 		return Command::SUCCESS;
+	}
+
+	/**
+	 * #1: Find absolute path
+	 *
+	 * @param array $item Playlist item
+	 * @param string $home Playlist location
+	 * @return string|boolean
+	 */
+	private function pathAbs( array $item, string $home )
+	{
+		if ( $path = Utils::pathToAbs( $item['line'], $home ) ) {
+			return $path;
+		}
+
+		$this->Logger->debug( sprintf( 'Not found (#1): "%s" (at %s)', $item['line'], $home ) );
+		return false;
+	}
+
+	/**
+	 * #2: Find item in relocation map
+	 *
+	 * @param array $item
+	 * @return string|boolean
+	 */
+	private function pathRelocate( array $item )
+	{
+		$base = dirname( $item['line'] );
+		$path = isset( $this->dirMap[$base] ) ? $this->dirMap[$base] . '/' . $item['name'] : '';
+
+		if ( file_exists( $path ) ) {
+			return $path;
+		}
+
+		$this->Logger->debug( sprintf( 'Not found (#2): no path mapping for "%s"', $base ) );
+		return false;
+	}
+
+	/**
+	 * #3: Find path with filename regex pattern
+	 *
+	 * @param array $item
+	 * @return string|boolean
+	 */
+	private function pathRename( array $item )
+	{
+		$base = dirname( $item['line'] );
+
+		foreach ( $this->regMap as $pat => $sub ) {
+			$path = $base . '/' . $this->getRenamedItem( $pat, $sub, $item['name'] );
+			if ( file_exists( $path ) ) {
+				return $path;
+			}
+		}
+
+		$this->Logger->debug( sprintf( 'Not found (#3): no pattern mapping for "%s"', $item['line'] ) );
+		return false;
+	}
+
+	/**
+	 * #4: Find item in Media Folder
+	 *
+	 * @param array $item
+	 * @param string $mediaDir
+	 * @param string $escDir
+	 * @return string|boolean
+	 */
+	private function pathMedia( array $item, string $mediaDir, string $escDir )
+	{
+		$dir = $this->matchDir( $mediaDir, $item['name'] );
+		$dir = $dir ? "$mediaDir/$dir" : $escDir;
+		$path = $dir . '/' . $item['name'];
+
+		if ( file_exists( $path ) ) {
+			return $path;
+		}
+
+		$this->Logger->debug( sprintf( 'Not found (#4): not in Media folder "%s"', $path ) );
+		return false;
+	}
+
+	/**
+	 * #5: Missing in all locations - Ask user!
+	 *
+	 * @param array $item
+	 * @param InputInterface $input
+	 * @param OutputInterface $output
+	 * @return string|boolean
+	 */
+	private function pathQuestion( array $item, InputInterface $input, OutputInterface $output )
+	{
+		$this->Logger->notice( 'Invalid path: ' . $item['line'] );
+
+		if ( $input->getOption( 'remove' ) ) {
+			return 'Remove';
+		}
+
+		/* @formatter:off */
+		$question = new ChoiceQuestion( 'Please select an action:', [
+			1 => 'Update',
+			2 => 'Relocate',
+			3 => 'Rename',
+			4 => 'Remove',
+			5 => 'Skip',
+			6 => 'Exit',
+		], 5 );
+		/* @formatter:on */
+
+		$path = '';
+		$base = dirname( $item['line'] );
+
+		$helper = $this->getHelper( 'question' );
+		switch ( $answer = $helper->ask( $input, $output, $question ) )
+		{
+			case 'Update':
+				$question = new Question( 'New path: ' );
+				$question->setValidator( function ( $answer ) {
+					if ( ! is_file( $answer ) ) {
+						throw new \InvalidArgumentException( 'File not found! ' );
+					}
+					return $answer;
+				} );
+
+				$path = $helper->ask( $input, $output, $question );
+				$this->Logger->debug( sprintf( 'New path "%s"', $path ) );
+				break;
+
+			case 'Relocate':
+				$question = new Question( sprintf( 'Replace all occurences of "%s" to: ', $base ) );
+				$question->setValidator( function ( $answer ) use ($item ) {
+					if ( ! is_file( $out = $answer . '/' . $item['name'] ) ) {
+						throw new \InvalidArgumentException( sprintf( 'Not found "%s"', $out ) );
+					}
+					return $answer;
+				} );
+
+				$this->dirMap[$base] = $helper->ask( $input, $output, $question );
+				$path = $this->dirMap[$base] . '/' . $item['name'];
+				$this->Logger->debug( sprintf( 'New path mapping "%s" -> "%s"', $base, $this->dirMap[$base] ) );
+				$this->Logger->debug( sprintf( 'Rename "%s" -> "%s"', $item['line'], $path ) );
+				break;
+
+			case 'Rename':
+				while ( 1 ) {
+					$pat = $helper->ask( $input, $output, new Question( 'Pattern: ' ) );
+					$sub = $helper->ask( $input, $output, new Question( 'Substitution: ' ) );
+
+					$name = $this->getRenamedItem( $pat, $sub, $item['name'] );
+					$path = $base . '/' . $name;
+
+					if ( file_exists( $path ) ) {
+						break;
+					}
+
+					$output->writeln( sprintf( '<error>Not found "%s"</>', $path ) );
+				}
+
+				$this->regMap[$pat] = $sub;
+				$this->Logger->debug( sprintf( 'Replace "%s" with "%s"', $pat, $sub ) );
+				break;
+
+			default:
+				return $answer;
+		}
+
+		return $path;
+	}
+
+	/**
+	 * Get new file name from pattern
+	 * Case sensitive!
+	 *
+	 * @param string $pat
+	 * @param string $sub
+	 * @param string $name Old filename
+	 * @return string New filename
+	 */
+	private function getRenamedItem( string $pat, string $sub, string $name )
+	{
+		return preg_replace( "~$pat~u", $sub, $name );
 	}
 }

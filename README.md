@@ -20,18 +20,20 @@ Displays Winamp playlists
 Scan and fix all entries from Winamp playlists.xml or any provided playlist file (*.m3u). 
 
 ## Validation
-There are 4 stages of validating each playlist entry:
+There are 5 steps to validate each playlist entry:
 
 ```
-a) Check that the entry points to an existing file. If not, then:
-b) Check that file exists in [Media folder] by testing the first letter. If not, then:
-c) Check that file exists in mapped location (see Relocate). If not, then:
-d) Ask for an action:
-   [1] Update - enter path manualy for current entry
-   [2] Relocate - mass change path for all files from current location
-   [3] Remove - remove current entry
-   [4] Skip (default) - don't change anything and skip to next entry
-   [5] Exit - return to prompt line
+  a) Check that the entry is pointing to an existing file. If not, then:
+  b) Check that file exists in mapped location (see Relocate). If not, then:
+  c) Check that file exists after renaming (see Rename). If not, then:
+  d) Check that file exists in [Media folder] by testing the first letter. If not, then:
+  e) Ask for an action:
+     [1] Update - enter path manualy for current entry
+     [2] Relocate - change path for all remaining files from current entry's location
+     [3] Rename - use regular expression to rename filename part for current and remaining entries
+     [4] Remove - remove current entry
+     [5] Skip (default) - leave current entry and skip to next one
+     [6] Exit - return to prompt line
 ```
 
 For more information and options type: `vendor\bin\winamp rebuild --help`
