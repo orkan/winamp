@@ -18,8 +18,8 @@ use Symfony\Component\Console\Input\InputOption;
 class Application extends BaseApplication
 {
 	const APP_NAME = 'Winamp Media Library CLI tools by Orkan';
-	const APP_VERSION = 'v2.1.1';
-	const RELEASE_DATE = 'Wed, 05 May 2021 02:49:39 +02:00';
+	const APP_VERSION = 'v2.2.0';
+	const RELEASE_DATE = 'Thu, 06 May 2021 16:15:39 +02:00';
 
 	/**
 	 * @link https://patorjk.com/software/taag/#p=display&v=0&f=Graffiti&t=Winamp
@@ -51,7 +51,7 @@ class Application extends BaseApplication
 		/* @formatter:off */
 		return [
 			'winamp_playlists' => getenv( 'APPDATA' ) . '\\Winamp\\Plugins\\ml\\playlists.xml',
-			'code_page'        => 'Windows-' . explode( '.', setlocale( LC_CTYPE, 0 ) )[1],
+			'code_page'        => function_exists( 'sapi_windows_cp_get' ) ? 'Windows-' . sapi_windows_cp_get( 'ansi' ) : 'ASCII',
 		];
 		/* @formatter:on */
 	}

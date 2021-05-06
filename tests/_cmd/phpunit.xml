@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd"
+	bootstrap="../../../../autoload.php"
+	cacheResult="false"
+	verbose="true"
+	columns="60">
+
+	<php>
+		<env name="APP_DEBUG" value="1" />
+		<const name="DEBUG" value="1" />
+		
+		<!-- 
+		Running tests in Eclipse causes PHP::sapi_windows_vt100_support() chek to fall down.
+		Bypass that check in Symfony Console by setting $_ENV['NO_COLOR'] = 1;
+		-->
+		<env name="NO_COLOR" value="1" />
+		
+		<!-- <const name="TESTING" value="1"/> -->
+	</php>
+
+	<testsuites>
+
+		<testsuite name="all">
+			<directory suffix="Test.php">..</directory>
+		</testsuite>
+
+	</testsuites>
+
+	<coverage>
+
+	</coverage>
+
+</phpunit>
