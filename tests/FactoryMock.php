@@ -21,7 +21,7 @@ class FactoryMock extends \Orkan\Winamp\Factory
 
 	public function logger()
 	{
-		if ( ! isset( $this->Logger ) ) {
+		if ( !isset( $this->Logger ) ) {
 
 			/* @formatter:off */
 			$this->merge([

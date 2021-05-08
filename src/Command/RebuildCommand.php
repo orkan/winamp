@@ -32,6 +32,24 @@ class RebuildCommand extends Command
 	private $defaultEsc = '[0-9]';
 
 	/**
+	 * Stats
+	 *
+	 * @formatter:off */
+	private $stats = [
+		'count'   => 0,
+		'items'   => 0,
+		'dupes'   => 0,
+		'moved'   => 0,
+		'removed' => 0,
+		'skiped'  => 0,
+		'updated' => 0,
+		'erased'  => 0,
+		'before'  => 0,
+		'after'   => 0,
+	];
+	/* @formatter:on */
+
+	/**
 	 * Mapped locations
 	 *
 	 * @var array
@@ -46,7 +64,6 @@ class RebuildCommand extends Command
 	private $regMap = [];
 
 	/**
-	 *
 	 * {@inheritDoc}
 	 * @see \Symfony\Component\Console\Command\Command::configure()
 	 */
@@ -145,7 +162,7 @@ EOT );
 
 		$infile = $input->getOption( 'infile' );
 
-		if ( ! in_array( Utils::fileExt( $infile ), $this->inputExt ) ) {
+		if ( !in_array( Utils::fileExt( $infile ), $this->inputExt ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Input file "%s" not in supproted extensions: %s', $infile, $this->inputExtStr ) );
 		}
 
@@ -163,19 +180,19 @@ EOT );
 			}
 		}
 
-		if ( ! is_file( $inputFile ) ) {
+		if ( !is_file( $inputFile ) ) {
 			throw new \InvalidArgumentException( sprintf( "Playlist file not found. Was trying:\n%s", Utils::implode( $locations, ",\n" ) ) );
 		}
 
-		if ( ! is_dir( $mediaDir = Utils::pathToAbs( $input->getArgument( 'media-folder' ), getcwd() ) ) ) {
+		if ( !is_dir( $mediaDir = Utils::pathToAbs( $input->getArgument( 'media-folder' ), getcwd() ) ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Media folder "%s" not found in "%s"', $input->getArgument( 'media-folder' ), getcwd() ) );
 		}
 
-		if ( ! is_dir( $escDir = Utils::pathToAbs( $mediaDir . '/' . $input->getOption( 'esc' ), getcwd() ) ) ) {
+		if ( !is_dir( $escDir = Utils::pathToAbs( $mediaDir . '/' . $input->getOption( 'esc' ), getcwd() ) ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Escape folder "%s" not found in "%s"', $input->getOption( 'esc' ), $mediaDir ) );
 		}
 
-		if ( ! empty( $format = $input->getOption( 'format' ) ) && ! in_array( $format, $this->outputExt ) ) {
+		if ( !empty( $format = $input->getOption( 'format' ) ) && !in_array( $format, $this->outputExt ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Unsuported output format "%s"', $format ) );
 		}
 
@@ -190,10 +207,12 @@ EOT );
 		// =============================================================================================================
 		foreach ( $this->getPlaylists( $inputFile ) as $playlistName => $playlistPath ) {
 
-			$this->Logger->notice( sprintf( 'Loading [%s]: %s', $playlistName, $playlistPath ) );
-
 			$Playlist = $this->Factory->createPlaylistBuilder( $playlistPath, $codePage, $Tagger );
-			$items = $Playlist->items();
+			$playlistCount = count( $Playlist->items() );
+			$playlistCountSkip = 0;
+
+			$this->Logger->info( sprintf( 'Loading [%s] (%s)', $playlistName, $playlistPath ) );
+			$this->Logger->debug( 'Items: ' . $playlistCount );
 
 			// ---------------------------------------------------------------------------------------------------------
 			// PRE Duplicates
@@ -231,6 +250,7 @@ EOT );
 
 				if ( 'Skip' == $itemPath ) {
 					$this->Logger->notice( 'Skipping...' );
+					$playlistCountSkip++;
 					continue;
 				}
 				if ( 'Remove' == $itemPath ) {
@@ -243,7 +263,7 @@ EOT );
 					return Command::FAILURE;
 				}
 
-				if ( ! is_file( $itemPath ) ) {
+				if ( !is_file( $itemPath ) ) {
 					/* @formatter:off */
 					throw new \UnexpectedValueException( sprintf(
 						'Computed path "%s" is invalid for playlist entry "%s"',
@@ -294,8 +314,35 @@ EOT );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
-			// Playlist stats
+			// Logic...
+			$isDry = $input->getOption( 'dry-run' );
+			$isBackup = !$input->getOption( 'no-backup' );
+			$outFormat = $input->getOption( 'format' ) ?: $Playlist->type();
+
+			$isForce = $input->getOption( 'force' );
+			$isForce |= $outFormat != $Playlist->type();
+
+			// ---------------------------------------------------------------------------------------------------------
+			// Save
+			if ( $doSave = $Playlist->isDirty() || $isForce ) {
+
+				$strForce = !$Playlist->isDirty() && $isForce ? ' +force' : '';
+				$strBackup = $isBackup ? ' +backup' : '';
+
+				$save = $Playlist->save( !$isDry, $isBackup, $outFormat );
+
+				$this->Logger->notice( sprintf( "Saved [%s]%s%s", basename( $save['file'] ), $strForce, $strBackup ) );
+				$this->Logger->info( 'File: ' . $save['file'] );
+				$isBackup && $this->Logger->info( 'Back: ' . ( $save['back'] ?: '---' ) );
+			}
+
+			// ---------------------------------------------------------------------------------------------------------
+			// Stats
 			$stats = $Playlist->stats();
+
+			$playlistCountFinal = count( $Playlist->items() );
+			$stats['updated'] = $stats['moved']['count'] + $stats['removed']['count'] + $stats['dupes']['count'];
+			$stats['erased'] = $playlistCount - $playlistCountFinal;
 
 			if ( $stats['removed']['count'] ) {
 				$this->Logger->info( sprintf( 'Removed (%d):', $stats['removed']['count'] ) );
@@ -304,49 +351,67 @@ EOT );
 				}
 			}
 
-			/* @formatter:off */
-			$this->Logger->notice( sprintf(
-				'Updated %2$d paths in [%1$s]: %3$d moved, %4$d removed, %5$s dupes --> %6$d before, %7$d after (%8$d erased)',
-				$playlistName,
-				$stats['moved']['count'] + $stats['removed']['count'] + $stats['dupes']['count'],
-				$stats['moved']['count'],
-				$stats['removed']['count'],
-				$input->getOption( 'dupes' ) ? $stats['dupes']['count'] : '?',
-				$before = count( $items ),
-				$after = count( $Playlist->items() ),
-				$before - $after
+			if ( $doSave ) {
+				/* @formatter:off */
+				$this->Logger->notice( sprintf(
+					'Updated %2$d paths in [%1$s]: ' .
+					'%3$d moved, %4$d removed, %5$s dupes --> ' .
+					'%6$d before, %7$d after (%8$d erased, %9$d skiped)',
+					$playlistName, // 1
+					$stats['updated'], // 2
+					$stats['moved']['count'], // 3
+					$stats['removed']['count'], // 4
+					$input->getOption( 'dupes' ) ? $stats['dupes']['count'] : '?', // 5
+					$playlistCount, // 6
+					$playlistCountFinal, // 7
+					$stats['erased'], // 8
+					$playlistCountSkip // 9
 				));
-			/* @formatter:on */
-
-			// ---------------------------------------------------------------------------------------------------------
-			// Logic...
-			$isDry = $input->getOption( 'dry-run' );
-			$isBackup = ! $input->getOption( 'no-backup' );
-			$outFormat = $input->getOption( 'format' ) ?: $Playlist->type();
-
-			$isForce = $input->getOption( 'force' );
-			$isForce |= $outFormat != $Playlist->type();
-
-			// ---------------------------------------------------------------------------------------------------------
-			// Save
-			if ( $Playlist->isDirty() || $isForce ) {
-
-				$force_str = ! $Playlist->isDirty() && $isForce ? ' +force' : '';
-				$backup_str = $isBackup ? ' +backup' : '';
-
-				$save = $Playlist->save( ! $isDry, $isBackup, $outFormat );
-
-				$this->Logger->notice( sprintf( "Saved [%s]%s%s", basename( $save['file'] ), $force_str, $backup_str ) );
-				$this->Logger->info( 'File: ' . $save['file'] );
-				$isBackup && $this->Logger->info( 'Back: ' . ( $save['back'] ?: '---' ) );
+				/* @formatter:on */
 			}
 			else {
 				$this->Logger->notice( sprintf( 'No changes in [%s]', $playlistName ) );
 			}
 
+			$this->stats['count']++;
+			$this->stats['items'] += $playlistCount;
+			$this->stats['dupes'] += $stats['dupes']['count'];
+			$this->stats['moved'] += $stats['moved']['count'];
+			$this->stats['removed'] += $stats['removed']['count'];
+			$this->stats['updated'] += $stats['updated'];
+			$this->stats['erased'] += $stats['erased'];
+			$this->stats['skiped'] += $playlistCountSkip;
+			$this->stats['before'] += $playlistCount;
+			$this->stats['after'] += $playlistCountFinal;
+
 			// =========================================================================================================
 			// Next playlist...
 			// =========================================================================================================
+		}
+
+		// Summary
+		if ( $this->stats['count'] > 1 ) {
+
+			$this->Logger->notice( '------------------' );
+			$this->Logger->notice( 'Summary:' );
+			$this->Logger->notice( '------------------' );
+
+			/* @formatter:off */
+			$this->Logger->notice( sprintf( 'In %1$d playlists found %2$d entries (%3$d moved, %4$d removed, %5$d dupes)',
+				$this->stats['count'], // 1
+				$this->stats['items'], // 2
+				$this->stats['moved'], // 3
+				$this->stats['removed'], // 4
+				$this->stats['dupes'] // 5
+			));
+			$this->Logger->notice( sprintf( '%1$d before, %2$d after (%3$d updated, %4$d erased, %5$d skiped)',
+				$this->stats['before'], // 1
+				$this->stats['after'], // 2
+				$this->stats['updated'], // 3
+				$this->stats['erased'], // 4
+				$this->stats['skiped'], // 5
+			));
+			/* @formatter:on */
 		}
 
 		return Command::SUCCESS;
@@ -467,7 +532,7 @@ EOT );
 			case 'Update':
 				$question = new Question( 'New path: ' );
 				$question->setValidator( function ( $answer ) {
-					if ( ! is_file( $answer ) ) {
+					if ( !is_file( $answer ) ) {
 						throw new \InvalidArgumentException( 'File not found! ' );
 					}
 					return $answer;
@@ -480,7 +545,7 @@ EOT );
 			case 'Relocate':
 				$question = new Question( sprintf( 'Replace all occurences of "%s" to: ', $base ) );
 				$question->setValidator( function ( $answer ) use ($item ) {
-					if ( ! is_file( $out = $answer . '/' . $item['name'] ) ) {
+					if ( !is_file( $out = $answer . '/' . $item['name'] ) ) {
 						throw new \InvalidArgumentException( sprintf( 'Not found "%s"', $out ) );
 					}
 					return $answer;

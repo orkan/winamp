@@ -14,7 +14,7 @@ use Orkan\Winamp\Factory;
 use Orkan\Winamp\Application\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 
-if ( ! in_array( PHP_SAPI, [ 'cli', 'phpdbg', 'embed' ], true ) ) {
+if ( !in_array( PHP_SAPI, [ 'cli', 'phpdbg', 'embed' ], true ) ) {
 	fwrite( STDERR, sprintf( "Warning:\nThe console should be invoked via the CLI version of PHP, not the %s SAPI\n\n", PHP_SAPI ) );
 }
 
@@ -25,7 +25,7 @@ foreach ( [ __DIR__ . '/../../../autoload.php', __DIR__ . '/../../vendor/autoloa
 	}
 }
 
-if ( ! defined( 'WINAMP_COMPOSER_INSTALL' ) ) {
+if ( !defined( 'WINAMP_COMPOSER_INSTALL' ) ) {
 	fwrite( STDERR, "You need to set up the project dependencies using Composer:\n\n\tcomposer install orkan/winamp\n\n" );
 	die( 1 );
 }

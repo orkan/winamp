@@ -23,24 +23,28 @@ class PlaylistBuilder
 {
 	/**
 	 * Absolute path to Playlist file
+	 *
 	 * @var string
 	 */
 	private $file;
 
 	/**
 	 * Home dir of playlist file
+	 *
 	 * @var string
 	 */
 	private $home;
 
 	/**
 	 * Playlist type (extension)
+	 *
 	 * @var string
 	 */
 	private $type;
 
 	/**
 	 * BOM sequuence
+	 *
 	 * @var string
 	 */
 	private $bom;
@@ -65,18 +69,21 @@ class PlaylistBuilder
 
 	/**
 	 * Wether the playlist has been modified by the client or not
+	 *
 	 * @var boolean
 	 */
 	private $isDirty = false;
 
 	/**
 	 * Id3 tagger used to generate #EXTINF tags in final playlist file
+	 *
 	 * @var M3UInterface
 	 */
 	private $Tagger;
 
 	/**
 	 * Some stats...
+	 *
 	 * @formatter:off */
 	private $stats = [
 		'dupes'   => [ 'count' => 0, 'items' => [], 'all' => 0 ],
@@ -132,7 +139,7 @@ class PlaylistBuilder
 		$base = dirname( $path );
 		do {
 			$new = $base . DIRECTORY_SEPARATOR . sprintf( '%s (%d).%s.bak', $info['filename'], $i, $info['extension'] );
-			$i ++;
+			$i++;
 		}
 		while ( is_file( $new ) );
 
@@ -160,7 +167,7 @@ class PlaylistBuilder
 	{
 		foreach ( (array) $keys as $id ) {
 			if ( isset( $this->main[$id] ) ) {
-				$this->stats[$stat]['count'] ++;
+				$this->stats[$stat]['count']++;
 				$this->stats[$stat]['items'][] = $this->main[$id]['line'];
 				unset( $this->main[$id] );
 				$this->isDirty = true;
@@ -185,7 +192,7 @@ class PlaylistBuilder
 
 			if ( isset( $unique[$key] ) ) {
 				$dupes[$key][] = $id;
-				$this->stats['dupes']['all'] ++;
+				$this->stats['dupes']['all']++;
 				$all[] = $id;
 				continue;
 			}
@@ -206,7 +213,7 @@ class PlaylistBuilder
 	public function path( int $id, string $path )
 	{
 		if ( $this->main[$id]['path'] != $path ) {
-			$this->stats['moved']['count'] ++;
+			$this->stats['moved']['count']++;
 			$this->stats['moved']['items'][] = $this->main[$id]['line'];
 			$this->main[$id]['path'] = $path;
 			$this->isDirty = true;
@@ -234,7 +241,7 @@ class PlaylistBuilder
 	 */
 	public function load()
 	{
-		if ( ! empty( $this->main ) ) {
+		if ( !empty( $this->main ) ) {
 			return;
 		}
 
@@ -245,7 +252,7 @@ class PlaylistBuilder
 
 		foreach ( $lines as $line ) {
 
-			if ( 0 === strpos( $line, '#EXT' ) ) {
+			if ( empty( $line ) || 0 === strpos( $line, '#EXT' ) ) {
 				continue;
 			}
 
@@ -339,7 +346,7 @@ class PlaylistBuilder
 		$keys = array_keys( $this->main );
 		$last = 0;
 		foreach ( $keys as $key ) {
-			if ( $key != $last ++ ) {
+			if ( $key != $last++ ) {
 				$this->isDirty = true;
 				break;
 			}
@@ -357,21 +364,21 @@ class PlaylistBuilder
 	 */
 	public static function sortPlaylist( array &$playlists, string $sort = '', string $dir = 'asc' ): bool
 	{
-		if ( empty( $playlists ) || empty( $sort ) || ! isset( $playlists[0][$sort] ) ) {
+		if ( empty( $playlists ) || empty( $sort ) || !isset( $playlists[0][$sort] ) ) {
 			return false;
 		}
 
 		uasort( $playlists, function ( $a, $b ) use ($sort, $dir ) {
 
 			if ( is_int( $a[$sort] ) ) {
-				$cmp = $a[$sort] < $b[$sort] ? - 1 : 1;
+				$cmp = $a[$sort] < $b[$sort] ? -1 : 1;
 			}
 			else {
 				$cmp = strcasecmp( $a[$sort], $b[$sort] );
 			}
 
 			// Keep ASC sorting for unknown [dir]
-			return 'desc' == $dir ? - $cmp : $cmp;
+			return 'desc' == $dir ? -$cmp : $cmp;
 		} );
 
 		return true;

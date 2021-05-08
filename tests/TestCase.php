@@ -51,16 +51,17 @@ class TestCase extends BaseTestCase
 	// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	public static function setUpBeforeClass(): void
 	{
-		if ( ! isset( static::$fixture ) ) {
+		if ( !isset( static::$fixture ) ) {
 			throw new \RuntimeException( 'Each test suite must set the fixture dirname in $fixture property' );
 		}
 
 		/* @formatter:off */
 		self::$dir = [
-			'fixture' => self::$testsDir . '/_fixtures/' . static::$fixture,
-			'sandbox' => self::$testsDir . '/_sandbox',
-			'ml'      => self::$testsDir . '/_sandbox/ml',
-			'media'   => self::$testsDir . '/_sandbox/media',
+			'fixtures' => self::$testsDir . '/_fixtures',
+			'fixture'  => self::$testsDir . '/_fixtures/' . static::$fixture,
+			'sandbox'  => self::$testsDir . '/_sandbox',
+			'ml'       => self::$testsDir . '/_sandbox/ml',
+			'media'    => self::$testsDir . '/_sandbox/media',
 		];
 		self::$Factory = new FactoryMock([
 			'test_class'       => basename( static::class ),
@@ -88,7 +89,7 @@ class TestCase extends BaseTestCase
 	protected function setUp(): void
 	{
 		self::$Logger->alert( '' );
-		self::$Logger->alert( sprintf( '>>> TEST %s.%02d - %s(): ', self::$series, ++ self::$count, $this->getName() ) );
+		self::$Logger->alert( sprintf( '>>> TEST %s.%02d - %s(): ', self::$series, ++self::$count, $this->getName() ) );
 	}
 
 	protected function tearDown(): void
@@ -107,7 +108,7 @@ class TestCase extends BaseTestCase
 
 	protected static function remove( $files )
 	{
-		if ( ! is_array( $files ) ) {
+		if ( !is_array( $files ) ) {
 			$files = (array) $files;
 		}
 

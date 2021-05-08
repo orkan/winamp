@@ -25,7 +25,6 @@ use Symfony\Component\Finder\Finder;
 class Command extends BaseCommand
 {
 	protected static $defaultName = 'common';
-
 	protected $input;
 	protected $output;
 
@@ -94,7 +93,6 @@ class Command extends BaseCommand
 			}
 		}
 	}
-
 
 	/**
 	 * {@inheritDoc}
@@ -200,7 +198,7 @@ class Command extends BaseCommand
 
 				// The 'title' can be number like, but we need it as !string! later in sort()
 				// Other numeric attributes should remain integers
-				$val = 'title' == $key || ! is_numeric( $val ) ? $val : (int) $val;
+				$val = 'title' == $key || !is_numeric( $val ) ? $val : (int) $val;
 
 				$attr[$key] = $val;
 			}

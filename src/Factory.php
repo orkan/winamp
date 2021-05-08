@@ -48,7 +48,7 @@ class Factory
 	 */
 	public function cfg( string $key = null, $val = null )
 	{
-		if ( ! isset( $key ) ) {
+		if ( !isset( $key ) ) {
 			return $this->cfg;
 		}
 
@@ -76,7 +76,7 @@ class Factory
 	 */
 	public function logger()
 	{
-		if ( ! isset( $this->Logger ) ) {
+		if ( !isset( $this->Logger ) ) {
 
 			/* @formatter:off */
 			$this->merge([
@@ -91,7 +91,7 @@ class Factory
 			$this->Logger = new Logger( 'ch1', [], [], new \DateTimeZone( $this->cfg['log_timezone'] ) );
 			$Input = new ArgvInput();
 
-			if ( ! $Input->hasParameterOption( '--no-log', true ) ) {
+			if ( !$Input->hasParameterOption( '--no-log', true ) ) {
 				$Handler = new RotatingFileHandler( $this->cfg['log_file'], $this->cfg['log_keep'], $this->cfg['log_level'] );
 				$Handler->setFormatter( new LineFormatter( "[%datetime%] %level_name%: %message%\n", $this->cfg['log_datetime'] ) );
 				$this->Logger->pushHandler( $Handler );

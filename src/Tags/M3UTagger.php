@@ -30,6 +30,6 @@ class M3UTagger implements M3UInterface
 
 	public function seconds(): int
 	{
-		return $this->id3['playtime_seconds'] ?? - 1;
+		return $this->id3['playtime_seconds'] ?? -1;
 	}
 }

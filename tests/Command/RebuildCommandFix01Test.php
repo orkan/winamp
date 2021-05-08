@@ -23,9 +23,9 @@ class RebuildCommandFix01Test extends TestCase
 	// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Helpers Helpers Helpers Helpers Helpers Helpers Helpers Helpers Helpers Helpers Helpers Helpers Helpers Helpers
 	// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	public static function setUpBeforeClass(): void
+	protected function setUp(): void
 	{
-		parent::setUpBeforeClass();
+		parent::setUp();
 
 		/**
 		 * Create Command
@@ -113,7 +113,7 @@ class RebuildCommandFix01Test extends TestCase
 		self::parseFiles( $data );
 		$backups = 2;
 
-		for ( $i = 0; $i < $backups; $i ++ ) {
+		for ( $i = 0; $i < $backups; $i++ ) {
 			/* @formatter:off */
 			self::$CommandTester->execute( [
 				'--infile'     => $data['files']['infile'],
@@ -344,6 +344,38 @@ class RebuildCommandFix01Test extends TestCase
 		foreach ( $data['files'] as $file ) {
 			$this->assertFileExists( Utils::fileNoExt( $file ) . '.m3u' );
 		}
+	}
+
+	/**
+	 * [empty.m3u]: Can read empty playlist
+	 */
+	public function testCanReadEmptyPlaylistAnsi()
+	{
+		/* @formatter:off */
+		self::$CommandTester->execute( [
+			'--infile'     => self::$dir['fixtures'] . '/empty.m3u',
+			'media-folder' => self::$dir['media'],
+		] );
+		/* @formatter:on */
+
+		// Expect no exception!
+		$this->assertTrue( true );
+	}
+
+	/**
+	 * [empty.m3u8]: Can read empty playlist (with BOM)
+	 */
+	public function testCanReadEmptyPlaylistUtf8()
+	{
+		/* @formatter:off */
+		self::$CommandTester->execute( [
+			'--infile'     => self::$dir['fixtures'] . '/empty.m3u8',
+			'media-folder' => self::$dir['media'],
+		] );
+		/* @formatter:on */
+
+		// Expect no exception!
+		$this->assertTrue( true );
 	}
 
 	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
