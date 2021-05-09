@@ -7,6 +7,7 @@
 namespace Orkan\Winamp\Command;
 
 use Orkan\Utils;
+use Orkan\Winamp\Playlists\PlaylistBuilder;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -140,11 +141,12 @@ EOT );
 		$this->addOption( 'esc', 'e', InputOption::VALUE_REQUIRED, '[Escape] sub-folder inside [Media folder]', $this->defaultEsc );
 		$this->addOption( 'sort', null, InputOption::VALUE_NONE, 'Sort playlist' );
 		$this->addOption( 'dupes', null, InputOption::VALUE_NONE, 'Remove duplicates' );
-		$this->addOption( 'remove', null, InputOption::VALUE_NONE, 'Remove missing paths' );
+		$this->addOption( 'action', 'a', InputOption::VALUE_REQUIRED, 'Default action for invalid entries: skip|remove|exit|ask (always "skip" in --quiet mode)', 'ask' );
 		$this->addOption( 'no-backup', null, InputOption::VALUE_NONE, 'Do not backup modified playlists' );
-		$this->addOption( 'format', 'f', InputOption::VALUE_REQUIRED, 'Output format: m3u | m3u8 (implicitly enables --force when input format differs)' );
+		$this->addOption( 'format', 'f', InputOption::VALUE_REQUIRED, 'Output format: m3u|m3u8 (implicitly enables --force when input format differs)' );
 		$this->addOption( 'no-ext', null, InputOption::VALUE_NONE, 'Skip all #EXTINF lines (will not read Id3 tags from media files)' );
 		$this->addOption( 'force', null, InputOption::VALUE_NONE, 'Refresh playlist file even if nothing has been modified, ie. refreshes #M3U tags' );
+		$this->addOption( 'pretty-xml', null, InputOption::VALUE_NONE, 'Pretty print playlists file' );
 	}
 
 	/**
@@ -211,21 +213,13 @@ EOT );
 			$playlistCount = count( $Playlist->items() );
 			$playlistCountSkip = 0;
 
-			$this->Logger->info( sprintf( 'Loading [%s] (%s)', $playlistName, $playlistPath ) );
+			$this->Logger->notice( sprintf( 'Load [%s] (%s)', $playlistName, $playlistPath ) );
 			$this->Logger->debug( 'Items: ' . $playlistCount );
 
 			// ---------------------------------------------------------------------------------------------------------
 			// PRE Duplicates
 			if ( $input->getOption( 'dupes' ) ) {
-				$this->Logger->notice( 'Removing duplicates...' );
-				$dupes = $Playlist->duplicates( true );
-
-				if ( $i = count( $dupes ) ) {
-					$this->Logger->info( sprintf( 'Dupes removed (%d):', $i ) );
-					foreach ( $dupes as $entry => $ids ) {
-						$this->Logger->info( sprintf( 'x%d - %s', count( $ids ), $entry ) );
-					}
-				}
+				$this->logDupes( 'PRE check', $Playlist->duplicates( true ) );
 			}
 
 			// =========================================================================================================
@@ -249,12 +243,12 @@ EOT );
 				/* @formatter:on */
 
 				if ( 'Skip' == $itemPath ) {
-					$this->Logger->notice( 'Skipping...' );
+					$this->Logger->notice( sprintf( 'Skiping "%s"', $item['line'] ) );
 					$playlistCountSkip++;
 					continue;
 				}
 				if ( 'Remove' == $itemPath ) {
-					$this->Logger->debug( sprintf( 'Removed "%s" from [%s] (%s)', $item['line'], $playlistName, $playlistPath ) );
+					$this->Logger->notice( sprintf( 'Removing "%s"', $item['line'] ) );
 					$Playlist->remove( $key );
 					continue;
 				}
@@ -277,7 +271,7 @@ EOT );
 				// Update
 				$itemPath = realpath( $itemPath );
 				if ( $item['line'] != $itemPath ) {
-					$this->Logger->info( 'Update path:' );
+					$this->Logger->info( 'Updated:' );
 					$this->Logger->info( '<-- ' . $item['line'] );
 					$this->Logger->info( '--> ' . $itemPath );
 					$Playlist->path( $key, $itemPath );
@@ -294,23 +288,15 @@ EOT );
 			// ---------------------------------------------------------------------------------------------------------
 			// POST Duplicates
 			// Some paths might be resolved to same location!
-			if ( $input->getOption( 'dupes' ) ) {
-				$this->Logger->notice( 'Removing duplicates...' );
-				$dupes = $Playlist->duplicates( true );
-
-				if ( $i = count( $dupes ) ) {
-					$this->Logger->info( sprintf( 'Dupes removed (%d):', $i ) );
-					foreach ( $dupes as $entry => $ids ) {
-						$this->Logger->info( sprintf( 'x%d - %s', count( $ids ), $entry ) );
-					}
-				}
+			if ( $input->getOption( 'dupes' ) && $Playlist->stats( 'moved' )['count'] ) {
+				$this->logDupes( 'POST check', $Playlist->duplicates( true ) );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
 			// Sort
 			if ( $input->getOption( 'sort' ) ) {
-				$this->Logger->notice( 'Sorting...' );
-				$Playlist->sort();
+				$i = $Playlist->sort();
+				$this->Logger->info( sprintf( 'Sort (%s)', $i ? 'changed' : 'no change' ) );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
@@ -324,14 +310,14 @@ EOT );
 
 			// ---------------------------------------------------------------------------------------------------------
 			// Save
-			if ( $doSave = $Playlist->isDirty() || $isForce ) {
+			if ( $Playlist->isDirty() || $isForce ) {
 
 				$strForce = !$Playlist->isDirty() && $isForce ? ' +force' : '';
 				$strBackup = $isBackup ? ' +backup' : '';
 
 				$save = $Playlist->save( !$isDry, $isBackup, $outFormat );
 
-				$this->Logger->notice( sprintf( "Saved [%s]%s%s", basename( $save['file'] ), $strForce, $strBackup ) );
+				$this->Logger->notice( sprintf( "Save [%s]%s%s", $playlistName, $strForce, $strBackup ) );
 				$this->Logger->info( 'File: ' . $save['file'] );
 				$isBackup && $this->Logger->info( 'Back: ' . ( $save['back'] ?: '---' ) );
 			}
@@ -351,10 +337,10 @@ EOT );
 				}
 			}
 
-			if ( $doSave ) {
+			if ( $stats['updated'] ) {
 				/* @formatter:off */
 				$this->Logger->notice( sprintf(
-					'Updated %2$d paths in [%1$s]: ' .
+					'Updated %2$d paths: ' .
 					'%3$d moved, %4$d removed, %5$s dupes --> ' .
 					'%6$d before, %7$d after (%8$d erased, %9$d skiped)',
 					$playlistName, // 1
@@ -368,9 +354,6 @@ EOT );
 					$playlistCountSkip // 9
 				));
 				/* @formatter:on */
-			}
-			else {
-				$this->Logger->notice( sprintf( 'No changes in [%s]', $playlistName ) );
 			}
 
 			$this->stats['count']++;
@@ -414,7 +397,29 @@ EOT );
 			/* @formatter:on */
 		}
 
+		// Pretty print XML?
+		if ( $input->getOption( 'pretty-xml' ) && 'xml' == Utils::fileExt( $inputFile ) ) {
+			$Xml = new \DomDocument( '1.0' );
+			$Xml->preserveWhiteSpace = false;
+			$Xml->formatOutput = true;
+			$Xml->load( $inputFile );
+			$filename = $input->getOption( 'no-backup' ) ? $inputFile : PlaylistBuilder::backupName( $inputFile );
+			$this->Logger->info( sprintf( 'Pretty print "%s"', $filename ) );
+			file_put_contents( $filename, $Xml->saveXML() );
+		}
+
 		return Command::SUCCESS;
+	}
+
+	/**
+	 * A shorthand for double dupes check
+	 */
+	private function logDupes( string $label, array $dupes )
+	{
+		$this->Logger->info( sprintf( 'Duplicates (%s): %d', $label, count( $dupes ) ) );
+		foreach ( $dupes as $entry => $ids ) {
+			$this->Logger->info( sprintf( 'x%d - %s', count( $ids ), $entry ) );
+		}
 	}
 
 	/**
@@ -506,11 +511,11 @@ EOT );
 	 */
 	private function pathQuestion( array $item, InputInterface $input, OutputInterface $output )
 	{
-		$this->Logger->notice( 'Invalid path: ' . $item['line'] );
-
-		if ( $input->getOption( 'remove' ) ) {
-			return 'Remove';
+		if ( in_array( strtolower( $input->getOption( 'action' ) ), [ 'skip', 'remove', 'exit' ] ) ) {
+			return ucfirst( $input->getOption( 'action' ) );
 		}
+
+		$this->Logger->notice( sprintf( 'Invalid "%s"', $item['line'] ) );
 
 		/* @formatter:off */
 		$question = new ChoiceQuestion( 'Please select an action:', [
@@ -539,7 +544,7 @@ EOT );
 				} );
 
 				$path = $helper->ask( $input, $output, $question );
-				$this->Logger->debug( sprintf( 'New path "%s"', $path ) );
+				$this->Logger->notice( sprintf( 'Updated to "%s"', $path ) );
 				break;
 
 			case 'Relocate':
@@ -554,7 +559,7 @@ EOT );
 				$this->dirMap[$base] = $helper->ask( $input, $output, $question );
 				$path = $this->dirMap[$base] . '/' . $item['name'];
 				$this->Logger->debug( sprintf( 'New path mapping "%s" -> "%s"', $base, $this->dirMap[$base] ) );
-				$this->Logger->debug( sprintf( 'Rename "%s" -> "%s"', $item['line'], $path ) );
+				$this->Logger->notice( sprintf( 'Relocated to "%s"', $path ) );
 				break;
 
 			case 'Rename':
@@ -573,7 +578,8 @@ EOT );
 				}
 
 				$this->regMap[$pat] = $sub;
-				$this->Logger->debug( sprintf( 'Replace "%s" with "%s"', $pat, $sub ) );
+				$this->Logger->debug( sprintf( 'New pattern mapping "%s" -> "%s"', $pat, $sub ) );
+				$this->Logger->notice( sprintf( 'Renamed to "%s"', $name ) );
 				break;
 
 			default:

@@ -91,26 +91,12 @@ class ShowCommand extends Command
 			$isSort = true;
 		}
 
-		$isSort && $this->Logger->info( sprintf( 'Sorting playlists by %s, %s:', $args['sort'], $args['dir'] ) );
+		$isSort && $this->Logger->info( sprintf( 'Sort playlists by: %s | %s', $args['sort'], $args['dir'] ) );
 		DEBUG && $isSort && $this->logPlaylistArray( $pls );
 
 		$table = new Table( $output );
 		switch ( $args['format'] )
 		{
-			case 'raw':
-				$l = strlen( count( $pls ) );
-				$table->setHeaders( array_merge( [ 'Lp' ], array_keys( $pls[0] ) ) );
-
-				foreach ( $pls as $key => $val ) {
-					// Justify right:
-					$lp = sprintf( "%{$l}s", $key + 1 );
-					$val['songs'] = sprintf( "%6s", $val['songs'] );
-					$val['seconds'] = sprintf( "%8s", $val['seconds'] );
-
-					$table->addRow( array_merge( [ $lp ], $val ) );
-				}
-				break;
-
 			case 'formated':
 				$table->setHeaders( [ 'Playlist [title]', 'Songs [songs]', 'Duration [seconds]' ] );
 				foreach ( $pls as $val ) {
@@ -122,16 +108,58 @@ class ShowCommand extends Command
 					] );
 					/* @formatter:on */
 				}
-
 				break;
 
+			case 'raw':
 			default:
-				throw new \OutOfBoundsException( 'Unsuported --format switch' );
+				$l = strlen( count( $pls ) );
+				$baseDir = dirname( $args['infile'] );
+				$table->setHeaders( array_merge( [ 'Lp', 'On' ], array_keys( $pls[0] ) ) );
+
+				foreach ( $pls as $key => $val ) {
+					// Justify right:
+					$lp = sprintf( "%{$l}s", $key + 1 );
+					$on = file_exists( $baseDir . '/' . $val['filename'] ) ? '+' : ' ';
+					$val['songs'] = sprintf( "%6s", $val['songs'] );
+					$val['seconds'] = sprintf( "%8s", $val['seconds'] );
+
+					$table->addRow( array_merge( [ $lp, $on ], $val ) );
+				}
+				break;
 		}
 		$table->setStyle( 'box-double' );
 		$table->render();
 
+		// -------------------------------------------------------------------------------------------------------------
+		// Summary
+		if ( $output->isVerbose() ) {
+			$stats = $this->stats( $pls );
+
+			/* @formatter:off */
+			$this->Logger->notice( sprintf(
+				'Playlists: %1$s | Songs: %2$s | Duration: %3$s',
+				$stats['count'],
+				Utils::formatNumber( $stats['songs'] ),
+				Utils::formatTime( $stats['seconds'], false )
+			));
+			/* @formatter:on */
+		}
+
 		return Command::SUCCESS;
+	}
+
+	/**
+	 * Playlists statistics
+	 */
+	protected function stats( array $pls ): array
+	{
+		$stats = [ 'count' => 0, 'songs' => 0, 'seconds' => 0 ];
+		foreach ( $pls as $key => $val ) {
+			$stats['count']++;
+			$stats['songs'] += $val['songs'];
+			$stats['seconds'] += $val['seconds'];
+		}
+		return $stats;
 	}
 
 	/**

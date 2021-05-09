@@ -132,7 +132,7 @@ class PlaylistBuilder
 	 *
 	 * @return string
 	 */
-	private function backupName( string $path ): string
+	public static function backupName( string $path ): string
 	{
 		$i = 1;
 		$info = pathinfo( $path );
@@ -323,7 +323,7 @@ class PlaylistBuilder
 
 		// Don't create backup if we are not overwriting any files
 		if ( $backup && is_file( $file ) ) {
-			$back = $this->backupName( $file );
+			$back = self::backupName( $file );
 			$write && rename( $file, $back );
 		}
 
@@ -338,19 +338,24 @@ class PlaylistBuilder
 	 *
 	 * @param string $sort Field name to sort by
 	 * @param string $dir Sort direction (asc|desc)
+	 *
+	 * @return bool Did sorting changed the playlist?
 	 */
-	public function sort( string $sort = 'name', string $dir = 'asc' )
+	public function sort( string $sort = 'name', string $dir = 'asc' ): bool
 	{
 		self::sortPlaylist( $this->main, $sort, $dir );
 
 		$keys = array_keys( $this->main );
 		$last = 0;
+		$isDirty = false;
 		foreach ( $keys as $key ) {
 			if ( $key != $last++ ) {
-				$this->isDirty = true;
+				$isDirty = true;
 				break;
 			}
 		}
+		$this->isDirty |= $isDirty;
+		return $isDirty;
 	}
 
 	/**
