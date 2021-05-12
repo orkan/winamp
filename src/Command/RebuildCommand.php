@@ -141,7 +141,7 @@ EOT );
 		$this->addOption( 'esc', 'e', InputOption::VALUE_REQUIRED, '[Escape] sub-folder inside [Media folder]', $this->defaultEsc );
 		$this->addOption( 'sort', null, InputOption::VALUE_NONE, 'Sort playlist' );
 		$this->addOption( 'dupes', null, InputOption::VALUE_NONE, 'Remove duplicates' );
-		$this->addOption( 'action', 'a', InputOption::VALUE_REQUIRED, 'Default action for invalid entries: skip|remove|exit|ask (always "skip" in --quiet mode)', 'ask' );
+		$this->addOption( 'action', 'a', InputOption::VALUE_REQUIRED, 'Default action to perfrorm on invalid entries: skip|remove|exit|ask (always "skip" in --quiet or --no-interaction mode)', 'ask' );
 		$this->addOption( 'no-backup', null, InputOption::VALUE_NONE, 'Do not backup modified playlists' );
 		$this->addOption( 'format', 'f', InputOption::VALUE_REQUIRED, 'Output format: m3u|m3u8 (implicitly enables --force when input format differs)' );
 		$this->addOption( 'no-ext', null, InputOption::VALUE_NONE, 'Skip all #EXTINF lines (will not read Id3 tags from media files)' );
@@ -296,7 +296,7 @@ EOT );
 			// Sort
 			if ( $input->getOption( 'sort' ) ) {
 				$i = $Playlist->sort();
-				$this->Logger->info( sprintf( 'Sort (%s)', $i ? 'changed' : 'no change' ) );
+				$this->Logger->info( sprintf( 'Sort: %s', $i ? 'changed' : 'no change' ) );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
@@ -354,6 +354,9 @@ EOT );
 					$playlistCountSkip // 9
 				));
 				/* @formatter:on */
+			}
+			else {
+				$this->Logger->info( sprintf( 'Skip [%s]', $playlistName ) );
 			}
 
 			$this->stats['count']++;
@@ -416,7 +419,7 @@ EOT );
 	 */
 	private function logDupes( string $label, array $dupes )
 	{
-		$this->Logger->info( sprintf( 'Duplicates (%s): %d', $label, count( $dupes ) ) );
+		$this->Logger->info( sprintf( 'Duplicates (%s): %s', $label, count( $dupes ) ?: 'none' ) );
 		foreach ( $dupes as $entry => $ids ) {
 			$this->Logger->info( sprintf( 'x%d - %s', count( $ids ), $entry ) );
 		}
@@ -537,27 +540,36 @@ EOT );
 			case 'Update':
 				$question = new Question( 'New path: ' );
 				$question->setValidator( function ( $answer ) {
-					if ( !is_file( $answer ) ) {
+					if ( !empty( $answer ) && !is_file( $answer ) ) {
 						throw new \InvalidArgumentException( 'File not found! ' );
 					}
 					return $answer;
 				} );
 
 				$path = $helper->ask( $input, $output, $question );
+				if ( empty( $path ) ) {
+					return 'Skip';
+				}
+
 				$this->Logger->notice( sprintf( 'Updated to "%s"', $path ) );
 				break;
 
 			case 'Relocate':
 				$question = new Question( sprintf( 'Replace all occurences of "%s" to: ', $base ) );
 				$question->setValidator( function ( $answer ) use ($item ) {
-					if ( !is_file( $out = $answer . '/' . $item['name'] ) ) {
+					if ( !empty( $answer ) && !is_file( $out = $answer . '/' . $item['name'] ) ) {
 						throw new \InvalidArgumentException( sprintf( 'Not found "%s"', $out ) );
 					}
 					return $answer;
 				} );
 
-				$this->dirMap[$base] = $helper->ask( $input, $output, $question );
-				$path = $this->dirMap[$base] . '/' . $item['name'];
+				$path = $helper->ask( $input, $output, $question );
+				if ( empty( $path ) ) {
+					return 'Skip';
+				}
+
+				$this->dirMap[$base] = $path;
+				$path = "{$path}/{$item['name']}";
 				$this->Logger->debug( sprintf( 'New path mapping "%s" -> "%s"', $base, $this->dirMap[$base] ) );
 				$this->Logger->notice( sprintf( 'Relocated to "%s"', $path ) );
 				break;
@@ -567,8 +579,12 @@ EOT );
 					$pat = $helper->ask( $input, $output, new Question( 'Pattern: ' ) );
 					$sub = $helper->ask( $input, $output, new Question( 'Substitution: ' ) );
 
+					if ( empty( $pat ) || empty( $sub ) ) {
+						return 'Skip';
+					}
+
 					$name = $this->getRenamedItem( $pat, $sub, $item['name'] );
-					$path = $base . '/' . $name;
+					$path = "{$base}/{$name}";
 
 					if ( file_exists( $path ) ) {
 						break;

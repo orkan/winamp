@@ -348,6 +348,7 @@ class RebuildCommandFix01Test extends TestCase
 
 	/**
 	 * [empty.m3u]: Can read empty playlist
+	 * Expect no exception!
 	 */
 	public function testCanReadEmptyPlaylistAnsi()
 	{
@@ -358,12 +359,12 @@ class RebuildCommandFix01Test extends TestCase
 		] );
 		/* @formatter:on */
 
-		// Expect no exception!
-		$this->assertTrue( true );
+		$this->expectNotToPerformAssertions();
 	}
 
 	/**
 	 * [empty.m3u8]: Can read empty playlist (with BOM)
+	 * Expect no exception!
 	 */
 	public function testCanReadEmptyPlaylistUtf8()
 	{
@@ -374,8 +375,7 @@ class RebuildCommandFix01Test extends TestCase
 		] );
 		/* @formatter:on */
 
-		// Expect no exception!
-		$this->assertTrue( true );
+		$this->expectNotToPerformAssertions();
 	}
 
 	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -506,6 +506,62 @@ class RebuildCommandFix01Test extends TestCase
 
 	public function _testCanAskUserToSkip()
 	{
+	}
+
+	/**
+	 * [pl09_action_skip.m3u8] Default action to perform on invlaid entries: skip
+	 * Actions: exit|ask -- not testable so far :(
+	 */
+	public function testCanPerformDefaultActionSkip()
+	{
+		/* @formatter:off */
+		$data = [
+			'files' => [
+				'infile' => self::$dir['ml'] . '/pl09.m3u8',
+				'expect' => self::$dir['ml'] . '/pl09_action_skip.m3u8',
+			],
+		];
+
+		self::parseFiles( $data );
+
+		self::$CommandTester->execute( [
+			'--infile'     => $data['files']['infile'],
+			'--action'     => 'skip',
+			'--no-ext'     => true,
+			'--no-backup'  => true,
+			'media-folder' => self::$dir['media'],
+		] );
+		/* @formatter:on */
+
+		$this->assertSame( $data['body']['expect'], file_get_contents( $data['files']['infile'] ) );
+	}
+
+	/**
+	 * [pl09_action_remove.m3u8] Default action to perform on invlaid entries: remove
+	 * Actions: exit|ask -- not testable so far :(
+	 */
+	public function testCanPerformDefaultActionRemove()
+	{
+		/* @formatter:off */
+		$data = [
+			'files' => [
+				'infile' => self::$dir['ml'] . '/pl09.m3u8',
+				'expect' => self::$dir['ml'] . '/pl09_action_remove.m3u8',
+			],
+		];
+
+		self::parseFiles( $data );
+
+		self::$CommandTester->execute( [
+			'--infile'     => $data['files']['infile'],
+			'--action'     => 'remove',
+			'--no-ext'     => true,
+			'--no-backup'  => true,
+			'media-folder' => self::$dir['media'],
+		] );
+		/* @formatter:on */
+
+		$this->assertSame( $data['body']['expect'], file_get_contents( $data['files']['infile'] ) );
 	}
 
 	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
