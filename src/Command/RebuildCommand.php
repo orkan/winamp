@@ -141,7 +141,7 @@ EOT );
 		$this->addOption( 'esc', 'e', InputOption::VALUE_REQUIRED, '[Escape] sub-folder inside [Media folder]', $this->defaultEsc );
 		$this->addOption( 'sort', null, InputOption::VALUE_NONE, 'Sort playlist' );
 		$this->addOption( 'dupes', null, InputOption::VALUE_NONE, 'Remove duplicates' );
-		$this->addOption( 'action', 'a', InputOption::VALUE_REQUIRED, 'Default action to perfrorm on invalid entries: skip|remove|exit|ask (always "skip" in --quiet or --no-interaction mode)', 'ask' );
+		$this->addOption( 'action', 'a', InputOption::VALUE_REQUIRED, 'Default action for invalid entries: skip|remove|exit|ask (In --quiet or --no-interaction mode default is: "skip")', 'ask' );
 		$this->addOption( 'no-backup', null, InputOption::VALUE_NONE, 'Do not backup modified playlists' );
 		$this->addOption( 'format', 'f', InputOption::VALUE_REQUIRED, 'Output format: m3u|m3u8 (implicitly enables --force when input format differs)' );
 		$this->addOption( 'no-ext', null, InputOption::VALUE_NONE, 'Skip all #EXTINF lines (will not read Id3 tags from media files)' );
@@ -201,7 +201,7 @@ EOT );
 		$this->Logger->debug( 'Resolved [Media folder] : ' . $mediaDir );
 		$this->Logger->debug( 'Resolved [Escape folder]: ' . $escDir );
 
-		$Tagger = $input->getOption( 'no-ext' ) ? null : $this->Factory->createM3UTagger();
+		$Tagger = $input->getOption( 'no-ext' ) ? null : $this->Factory->create( 'M3UTagger' );
 		$codePage = $input->getOption( 'code-page' ); // For *.m3u files only
 
 		// =============================================================================================================
@@ -209,7 +209,7 @@ EOT );
 		// =============================================================================================================
 		foreach ( $this->getPlaylists( $inputFile ) as $playlistName => $playlistPath ) {
 
-			$Playlist = $this->Factory->createPlaylistBuilder( $playlistPath, $codePage, $Tagger );
+			$Playlist = $this->Factory->create( 'PlaylistBuilder', $playlistPath, $codePage, $Tagger );
 			$playlistCount = count( $Playlist->items() );
 			$playlistCountSkip = 0;
 

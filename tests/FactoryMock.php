@@ -16,7 +16,6 @@ use Monolog\Handler\RotatingFileHandler;
  */
 class FactoryMock extends \Orkan\Winamp\Factory
 {
-	public $stubs;
 	protected $Logger;
 
 	public function logger()
@@ -45,33 +44,25 @@ class FactoryMock extends \Orkan\Winamp\Factory
 	/**
 	 * @return \PHPUnit\Framework\MockObject\MockObject
 	 */
-	public function stub( $name )
+	public function stubs( string $name, $mock = null )
 	{
-		return $this->stubs[$name];
+		static $stubs = [];
+
+		if ( null !== $mock ) {
+			$stubs[$name] = $mock;
+		}
+
+		return $stubs[$name] ?? null;
 	}
 
 	/**
-	 * @return \Orkan\Winamp\Tags\M3UTagger
+	 * Return mocked object if exists or create original
+	 *
+	 * {@inheritDoc}
+	 * @see \Orkan\Winamp\Factory::create()
 	 */
-	public function createM3UTagger()
+	public function create( string $name, ...$args )
 	{
-		if ( isset( $this->stubs['M3UTagger'] ) ) {
-			return $this->stubs['M3UTagger'];
-		}
-
-		return parent::createM3UTagger();
-	}
-
-	/**
-	 * @param mixed ...$args
-	 * @return \Orkan\Winamp\Playlists\PlaylistBuilder
-	 */
-	public function createPlaylistBuilder( ...$args )
-	{
-		if ( isset( $this->stubs['PlaylistBuilder'] ) ) {
-			return $this->stubs['PlaylistBuilder'];
-		}
-
-		return parent::createPlaylistBuilder( $args[0], $args[1], $args[2] );
+		return $this->stubs( $name ) ?? parent::create( $name, ...$args );
 	}
 }

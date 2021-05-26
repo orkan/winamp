@@ -119,35 +119,15 @@ class Factory
 	}
 
 	/**
-	 * Can't find a way to pass $args as function arguments - and not as an array ??? ...
+	 * Create new object
 	 *
-	 * @param string $key
-	 * @param array ...$args
-	 * @return mixed
-	 public static function create( string $key, ...$args )
-	 {
-	 $class = self::cfg( $key );
-	 return new $class( $args ); <-- $args as array !!!
-	 }
+	 * @param string $name    Object name to create
+	 * @param mixed  ...$args Object args passed to constructor
+	 * @return mixed New object
 	 */
-
-	/**
-	 * @return \Orkan\Winamp\Tags\M3UTagger
-	 */
-	public function createM3UTagger()
+	public function create( string $name, ...$args )
 	{
-		$class = $this->cfg( 'M3UTagger' );
-		return new $class();
-	}
-
-	/**
-	 * @param mixed ...$args
-	 * @return \Orkan\Winamp\Playlists\PlaylistBuilder
-	 */
-	public function createPlaylistBuilder( ...$args )
-	{
-		$class = $this->cfg( 'PlaylistBuilder' );
-		return new $class( $args[0], $args[1], $args[2] );
-		//return $this->create( 'PlaylistBuilder', ...$args );
+		$class = $this->cfg( $name );
+		return new $class( ...$args );
 	}
 }

@@ -54,13 +54,9 @@ class RebuildCommandFix01Test extends TestCase
 
 		/*
 		 * Stubs aren't used since we'll use mocked playlists files instead
-		 *
-		 * @formatter:off */
-		self::$Factory->stubs = [
-			//'M3UTagger'       => $this->createStub( self::$Factory->cfg( 'M3UTagger' ) ),
-			//'PlaylistBuilder' => $this->createStub( self::$Factory->cfg( 'PlaylistBuilder' ) ),
-		];
-		/* @formatter:on */
+		self::$Factory->stubs( 'M3UTagger', $this->createStub( self::$Factory->cfg( 'M3UTagger' ) ) );
+		self::$Factory->stubs( 'PlaylistBuilder', $this->createStub( self::$Factory->cfg( 'PlaylistBuilder' ) ) );
+		 */
 	}
 
 	protected function tearDown(): void
