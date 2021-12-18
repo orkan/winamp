@@ -21,6 +21,8 @@ use Orkan\Winamp\Tags\M3UInterface;
  */
 class PlaylistBuilder
 {
+	const SUPPORTED_TYPES = [ 'm3u', 'm3u8' ];
+
 	/**
 	 * Absolute path to Playlist file
 	 *
@@ -99,12 +101,17 @@ class PlaylistBuilder
 	 */
 	public function __construct( string $file, string $codePage = 'ASCII', M3UInterface $Tagger = null )
 	{
-		$this->file = Utils::pathToAbs( $file, getcwd() );
+		$this->file = Utils::pathToAbs( $file, getcwd() ) ?: $file;
 		$this->home = dirname( $this->file );
 		$this->type = pathinfo( $this->file, PATHINFO_EXTENSION );
 		$this->bom = pack( 'H*', 'EFBBBF' );
 		$this->codePage = $codePage;
 		$this->Tagger = $Tagger;
+	}
+
+	public static function supportedTypes(): string
+	{
+		return '*.' . implode( ', *.', self::SUPPORTED_TYPES );
 	}
 
 	/**
@@ -156,6 +163,24 @@ class PlaylistBuilder
 	{
 		$this->load();
 		return $this->main;
+	}
+
+	/**
+	 * Return all path lines found in the original Playlist
+	 * @see \Orkan\Winamp\Playlists\PlaylistBuilder::$main['line']
+	 *
+	 * @return array Original path entries
+	 */
+	public function lines(): array
+	{
+		$this->load();
+
+		$out = [];
+		foreach ( $this->main as $val ) {
+			$out[] = $val['line'];
+		}
+
+		return $out;
 	}
 
 	/**
@@ -237,12 +262,19 @@ class PlaylistBuilder
 
 	/**
 	 * Initialize main array from entries found in playlist.
-	 *
 	 */
 	public function load()
 	{
+		if ( !is_file( $this->file ) ) {
+			return;
+		}
+
 		if ( !empty( $this->main ) ) {
 			return;
+		}
+
+		if ( !in_array( $this->type, self::SUPPORTED_TYPES ) ) {
+			throw new \Exception( sprintf( 'File type "%s" not in supproted extensions: %s', $this->type, implode( ', ', self::SUPPORTED_TYPES ) ) );
 		}
 
 		$toUtf = 'm3u' == $this->type;
@@ -258,6 +290,19 @@ class PlaylistBuilder
 
 			$toUtf && $line = iconv( $this->codePage, 'UTF-8', $line );
 
+			$this->add( $line );
+		}
+	}
+
+	/**
+	 * Add new entry(s) to playlist.
+	 */
+	public function add( $lines )
+	{
+		$lines = (array) $lines;
+
+		foreach ( $lines as $line ) {
+
 			/* @formatter:off */
 			$this->main[] = [
 				'line' => $line, // original entry
@@ -265,6 +310,8 @@ class PlaylistBuilder
 				'name' => basename( $line ), // sort by filename
 			];
 			/* @formatter:on */
+
+			$this->isDirty = true;
 		}
 	}
 

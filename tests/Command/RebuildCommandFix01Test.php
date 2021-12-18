@@ -565,7 +565,7 @@ class RebuildCommandFix01Test extends TestCase
 	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	/**
-	 * Cant find Media folder
+	 * Cant find input file
 	 */
 	public function testExceptionThrownIfInputFileNotFound()
 	{

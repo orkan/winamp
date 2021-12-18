@@ -27,9 +27,9 @@ class RebuildCommand extends Command
 	/**
 	 * Defaults for input options
 	 */
-	private $outputExt = [ 'm3u', 'm3u8' ];
-	private $inputExt = [ 'xml', 'm3u', 'm3u8' ];
+	private $inputExt;
 	private $inputExtStr;
+	private $outputExt;
 	private $defaultEsc = '[0-9]';
 
 	/**
@@ -70,6 +70,9 @@ class RebuildCommand extends Command
 	 */
 	protected function configure()
 	{
+		// Extensions:
+		$this->inputExt = array_merge( [ 'xml' ], PlaylistBuilder::SUPPORTED_TYPES );
+		$this->outputExt = PlaylistBuilder::SUPPORTED_TYPES;
 		$this->inputExtStr = '*.' . implode( ', *.', $this->inputExt );
 
 		$this->setDescription( 'Rebuild playlists' );

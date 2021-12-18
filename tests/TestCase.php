@@ -99,6 +99,10 @@ class TestCase extends BaseTestCase
 	// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Methods Methods Methods Methods Methods Methods Methods Methods Methods Methods Methods Methods Methods Methods
 	// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	protected static function getDir( string $dir ) {
+		return self::$dir[$dir];
+	}
+
 	protected static function removeFiles( string $dir, array $files )
 	{
 		foreach ( ( new Finder() )->name( $files )->in( $dir ) as $file ) {
