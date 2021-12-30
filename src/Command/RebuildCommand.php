@@ -7,7 +7,7 @@
 namespace Orkan\Winamp\Command;
 
 use Orkan\Utils;
-use Orkan\Winamp\Playlists\PlaylistBuilder;
+use Orkan\Winamp\Tools\PlaylistBuilder;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -212,8 +212,8 @@ EOT );
 		// =============================================================================================================
 		foreach ( $this->getPlaylists( $inputFile ) as $playlistName => $playlistPath ) {
 
-			$Playlist = $this->Factory->create( 'PlaylistBuilder', $playlistPath, $codePage, $Tagger );
-			$playlistCount = count( $Playlist->items() );
+			$Playlist = $this->Factory->create( 'PlaylistBuilder', $playlistPath, $Tagger, [ 'base' => $mediaDir, 'cp' => $codePage ] );
+			$playlistCount = $Playlist->count();
 			$playlistCountSkip = 0;
 
 			$this->Logger->notice( sprintf( 'Load [%s] (%s)', $playlistName, $playlistPath ) );
@@ -237,7 +237,7 @@ EOT );
 				 *
 				 * @formatter:off */
 				$itemPath =
-					$this->pathAbs( $item, $Playlist->home() ) ?:
+					$this->pathAbs( $item, $Playlist->cfg( 'base' ) ) ?:
 					$this->pathRelocate( $item ) ?:
 					$this->pathRename( $item ) ?:
 					$this->pathMedia( $item, $mediaDir, $escDir ) ?:
@@ -246,12 +246,13 @@ EOT );
 				/* @formatter:on */
 
 				if ( 'Skip' == $itemPath ) {
-					$this->Logger->notice( sprintf( 'Skiping "%s"', $item['line'] ) );
+					$this->Logger->notice( sprintf( 'Skiping "%s"', $item['orig'] ) );
+					$Playlist->path( $key, $item['orig'] ); // replace missing realpath with original entry
 					$playlistCountSkip++;
 					continue;
 				}
 				if ( 'Remove' == $itemPath ) {
-					$this->Logger->notice( sprintf( 'Removing "%s"', $item['line'] ) );
+					$this->Logger->notice( sprintf( 'Removing "%s"', $item['orig'] ) );
 					$Playlist->remove( $key );
 					continue;
 				}
@@ -265,7 +266,7 @@ EOT );
 					throw new \UnexpectedValueException( sprintf(
 						'Computed path "%s" is invalid for playlist entry "%s"',
 						$itemPath,
-						$item['line']
+						$item['orig']
 					));
 					/* @formatter:on */
 				}
@@ -273,9 +274,9 @@ EOT );
 				// -----------------------------------------------------------------------------------------------------
 				// Update
 				$itemPath = realpath( $itemPath );
-				if ( $item['line'] != $itemPath ) {
+				if ( $item['orig'] != $itemPath ) {
 					$this->Logger->info( 'Updated:' );
-					$this->Logger->info( '<-- ' . $item['line'] );
+					$this->Logger->info( '<-- ' . $item['orig'] );
 					$this->Logger->info( '--> ' . $itemPath );
 					$Playlist->path( $key, $itemPath );
 				}
@@ -306,10 +307,10 @@ EOT );
 			// Logic...
 			$isDry = $input->getOption( 'dry-run' );
 			$isBackup = !$input->getOption( 'no-backup' );
-			$outFormat = $input->getOption( 'format' ) ?: $Playlist->type();
+			$outFormat = $input->getOption( 'format' ) ?: $Playlist->cfg( 'type' );
 
 			$isForce = $input->getOption( 'force' );
-			$isForce |= $outFormat != $Playlist->type();
+			$isForce |= $outFormat != $Playlist->cfg( 'type' );
 
 			// ---------------------------------------------------------------------------------------------------------
 			// Save
@@ -432,28 +433,27 @@ EOT );
 	 * #1: Find absolute path
 	 *
 	 * @param array $item Playlist item
-	 * @param string $home Playlist location
 	 * @return string|boolean
 	 */
 	private function pathAbs( array $item, string $home )
 	{
-		if ( $path = Utils::pathToAbs( $item['line'], $home ) ) {
-			return $path;
+		if ( $item['path'] ) {
+			return $item['path']; // realpath(), see: PlaylistBuilder->load()
 		}
 
-		$this->Logger->debug( sprintf( 'Not found (#1): "%s" (at %s)', $item['line'], $home ) );
+		$this->Logger->debug( sprintf( 'Not found (#1): "%s" (at %s)', $item['orig'], $home ) );
 		return false;
 	}
 
 	/**
 	 * #2: Find item in relocation map
 	 *
-	 * @param array $item
+	 * @param array $item Playlist item
 	 * @return string|boolean
 	 */
 	private function pathRelocate( array $item )
 	{
-		$base = dirname( $item['line'] );
+		$base = dirname( $item['orig'] );
 		$path = isset( $this->dirMap[$base] ) ? $this->dirMap[$base] . '/' . $item['name'] : '';
 
 		if ( file_exists( $path ) ) {
@@ -467,12 +467,12 @@ EOT );
 	/**
 	 * #3: Find path with filename regex pattern
 	 *
-	 * @param array $item
+	 * @param array $item Playlist item
 	 * @return string|boolean
 	 */
 	private function pathRename( array $item )
 	{
-		$base = dirname( $item['line'] );
+		$base = dirname( $item['orig'] );
 
 		foreach ( $this->regMap as $pat => $sub ) {
 			$path = $base . '/' . $this->getRenamedItem( $pat, $sub, $item['name'] );
@@ -481,16 +481,14 @@ EOT );
 			}
 		}
 
-		$this->Logger->debug( sprintf( 'Not found (#3): no pattern mapping for "%s"', $item['line'] ) );
+		$this->Logger->debug( sprintf( 'Not found (#3): no pattern mapping for "%s"', $item['orig'] ) );
 		return false;
 	}
 
 	/**
 	 * #4: Find item in Media Folder
 	 *
-	 * @param array $item
-	 * @param string $mediaDir
-	 * @param string $escDir
+	 * @param array $item Playlist item
 	 * @return string|boolean
 	 */
 	private function pathMedia( array $item, string $mediaDir, string $escDir )
@@ -510,9 +508,7 @@ EOT );
 	/**
 	 * #5: Missing in all locations - Ask user!
 	 *
-	 * @param array $item
-	 * @param InputInterface $input
-	 * @param OutputInterface $output
+	 * @param array $item Playlist item
 	 * @return string|boolean
 	 */
 	private function pathQuestion( array $item, InputInterface $input, OutputInterface $output )
@@ -521,7 +517,7 @@ EOT );
 			return ucfirst( $input->getOption( 'action' ) );
 		}
 
-		$this->Logger->notice( sprintf( 'Invalid "%s"', $item['line'] ) );
+		$this->Logger->notice( sprintf( 'Invalid "%s"', $item['orig'] ) );
 
 		/* @formatter:off */
 		$question = new ChoiceQuestion( 'Please select an action:', [
@@ -535,7 +531,7 @@ EOT );
 		/* @formatter:on */
 
 		$path = '';
-		$base = dirname( $item['line'] );
+		$base = dirname( $item['orig'] );
 
 		$helper = $this->getHelper( 'question' );
 		switch ( $answer = $helper->ask( $input, $output, $question ) )

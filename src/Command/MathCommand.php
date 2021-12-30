@@ -7,7 +7,7 @@
 namespace Orkan\Winamp\Command;
 
 use Orkan\Utils;
-use Orkan\Winamp\Playlists\PlaylistBuilder;
+use Orkan\Winamp\Tools\PlaylistBuilder;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -87,8 +87,8 @@ class MathCommand extends Command
 		// =============================================================================================================
 		// Run:
 		// =============================================================================================================
-		$pla = $this->Factory->create( 'PlaylistBuilder', $pls['pla']['path'] )->lines();
-		$plb = $this->Factory->create( 'PlaylistBuilder', $pls['plb']['path'] )->lines();
+		$pla = $this->Factory->create( 'PlaylistBuilder', $pls['pla']['path'] )->paths( 'orig' );
+		$plb = $this->Factory->create( 'PlaylistBuilder', $pls['plb']['path'] )->paths( 'orig' );
 
 		$out = array_diff( $pla, $plb );
 
@@ -100,7 +100,7 @@ class MathCommand extends Command
 		// Output playlist
 		$Tagger = $input->getOption( 'no-ext' ) ? null : $this->Factory->create( 'M3UTagger' );
 		$codePage = $input->getOption( 'code-page' );
-		$PlaylistOut = $this->Factory->create( 'PlaylistBuilder', $pls['out']['path'], $codePage, $Tagger );
+		$PlaylistOut = $this->Factory->create( 'PlaylistBuilder', $pls['out']['path'], $Tagger, [ 'cp' => $codePage ] );
 		$PlaylistOut->add( $out );
 
 		// Stats
@@ -127,7 +127,7 @@ class MathCommand extends Command
 		$isBackup = !$input->getOption( 'no-backup' );
 
 		$strBackup = $isBackup ? ' +backup' : '';
-		$save = $PlaylistOut->save( !$isDry, $isBackup );
+		$save = $PlaylistOut->save( !$isDry, $isBackup, '', 'orig' ); // save original path entries
 
 		$this->Logger->notice( sprintf( "Save [%s]%s", basename( $pls['out']['path'] ), $strBackup ) );
 		$this->Logger->info( 'File: ' . $save['file'] );

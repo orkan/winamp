@@ -87,4 +87,12 @@ class FactoryTest extends TestCase
 		$Factory = new Factory( $cfg );
 		$this->assertSame( $expected, $Factory->cfg() );
 	}
+
+	/**
+	 */
+	public function testCanLoadMissingCfgValue()
+	{
+		$Factory = new Factory();
+		$this->assertSame( '', $Factory->cfg( 'not exist' ) );
+	}
 }

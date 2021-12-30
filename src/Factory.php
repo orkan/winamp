@@ -13,6 +13,7 @@ use Orkan\Utils;
 use Orkan\Winamp\Application\Application;
 use Symfony\Bridge\Monolog\Handler\ConsoleHandler;
 use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -41,28 +42,22 @@ class Factory
 
 	/**
 	 * Set/Get config value
-	 *
-	 * @param string|null $key
-	 * @param string|null $val
-	 * @return mixed
 	 */
-	public function cfg( string $key = null, $val = null )
+	public function cfg( string $key = '', $val = null )
 	{
-		if ( !isset( $key ) ) {
-			return $this->cfg;
-		}
-
 		if ( isset( $val ) ) {
 			$this->cfg[$key] = $val;
 		}
 
-		return $this->cfg[$key] ?? 'n/a';
+		if ( '' === $key ) {
+			return $this->cfg;
+		}
+
+		return $this->cfg[$key] ?? '';
 	}
 
 	/**
 	 * Merge defaults with current config
-	 *
-	 * @param array $cfg
 	 */
 	public function merge( array $defaults )
 	{
@@ -119,11 +114,37 @@ class Factory
 	}
 
 	/**
+	 * Assign CLI output to Console Handler
+	 *
+	 * When?
+	 * If using standalone Logger instance b/c ConsoleOutput is OFF by default.
+	 * @see \Symfony\Bridge\Monolog\Handler\ConsoleHandler
+	 *
+	 * How?
+	 * @see \Symfony\Component\Console\Application::run()
+	 * @see \Symfony\Component\Console\Application::configureIO()
+	 * @see \Symfony\Component\Console\Command\Command::initialize()
+	 * $Factory->initConsoleHandler( new ConsoleOutput( OutputInterface::VERBOSITY_VERBOSE ) );
+	 */
+	public function initConsoleHandler( ConsoleOutput $output = null )
+	{
+		if ( null === $output ) {
+			$output = new ConsoleOutput();
+		}
+
+		foreach ( $this->logger()->getHandlers() as $Handler ) {
+			if ( $Handler instanceof ConsoleHandler ) {
+				$Handler->setOutput( $output );
+			}
+		}
+	}
+
+	/**
 	 * Create new object
 	 *
-	 * @param string $name    Object name to create
-	 * @param mixed  ...$args Object args passed to constructor
-	 * @return mixed New object
+	 * @param  string $name    Object name to create
+	 * @param  mixed  ...$args Object args passed to constructor
+	 * @return mixed           New object
 	 */
 	public function create( string $name, ...$args )
 	{

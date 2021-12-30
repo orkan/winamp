@@ -4,10 +4,9 @@
  *
  * Copyright (c) 2021 Orkan <orkans@gmail.com>
  */
-namespace Orkan\Winamp\Playlists;
+namespace Orkan\Winamp\Tools;
 
 use Orkan\Utils;
-use Orkan\Winamp\Tags\M3UInterface;
 
 /**
  * Build M3U playlist
@@ -31,39 +30,18 @@ class PlaylistBuilder
 	private $file;
 
 	/**
-	 * Home dir of playlist file
+	 * Config passed to constructor
 	 *
-	 * @var string
+	 * @var array
 	 */
-	private $home;
-
-	/**
-	 * Playlist type (extension)
-	 *
-	 * @var string
-	 */
-	private $type;
-
-	/**
-	 * BOM sequuence
-	 *
-	 * @var string
-	 */
-	private $bom;
-
-	/**
-	 * Code page to read/write *.m3u files
-	 *
-	 * @var string
-	 */
-	private $codePage;
+	private $cfg;
 
 	/**
 	 * Main array of all files found in Playlist.
 	 * To identify an entry in any of the public methods here - use the (int) key
 	 *
-	 * $this->main[0] = [ 'line' => original entry1, 'name' => filename1, 'path' => full path1 ]
-	 * $this->main[1] = [ 'line' => original entry2, 'name' => filename2, 'path' => full path2 ]
+	 * $this->main[0] = [ 'orig' => original entry1, 'path' => full path1, 'name' => filename1 ]
+	 * $this->main[1] = [ 'orig' => original entry2, 'path' => full path2, 'name' => filename2 ]
 	 *
 	 * @var array
 	 */
@@ -91,6 +69,7 @@ class PlaylistBuilder
 		'dupes'   => [ 'count' => 0, 'items' => [], 'all' => 0 ],
 		'moved'   => [ 'count' => 0, 'items' => [] ],
 		'removed' => [ 'count' => 0, 'items' => [] ],
+		'missing' => [ 'count' => 0, 'items' => [] ],
 	];
 	/* @formatter:on */
 
@@ -99,13 +78,19 @@ class PlaylistBuilder
 	 * @param string $codePage *.m3u files encoding
 	 * @param M3UInterface $Tagger (optional) Id3 tagger to generate #EXTM3U entries in final playlist file
 	 */
-	public function __construct( string $file, string $codePage = 'ASCII', M3UInterface $Tagger = null )
+	public function __construct( string $file, M3UInterface $Tagger = null, array $cfg = [] )
 	{
-		$this->file = Utils::pathToAbs( $file, getcwd() ) ?: $file;
-		$this->home = dirname( $this->file );
-		$this->type = pathinfo( $this->file, PATHINFO_EXTENSION );
-		$this->bom = pack( 'H*', 'EFBBBF' );
-		$this->codePage = $codePage;
+
+		/* @formatter:off */
+		$this->cfg = array_merge( [
+			'base' => realpath( dirname( $file ) ) ?: getcwd(), // base dir from which relative track paths are computed
+			'type' => pathinfo( $file, PATHINFO_EXTENSION ),
+			'bom'  => pack( 'H*', 'EFBBBF' ),
+			'cp'   => 'ASCII',
+		], $cfg );
+		/* @formatter:on */
+
+		$this->file = $file;
 		$this->Tagger = $Tagger;
 	}
 
@@ -115,23 +100,19 @@ class PlaylistBuilder
 	}
 
 	/**
-	 * Get Paylists home dir
-	 *
-	 * @return string
+	 * Set/Get config value
 	 */
-	public function home(): string
+	public function cfg( string $key = '', $val = null )
 	{
-		return $this->home;
-	}
+		if ( isset( $val ) ) {
+			$this->cfg[$key] = $val;
+		}
 
-	/**
-	 * Get Paylists extension
-	 *
-	 * @return string
-	 */
-	public function type(): string
-	{
-		return $this->type;
+		if ( '' === $key ) {
+			return $this->cfg;
+		}
+
+		return $this->cfg[$key] ?? '';
 	}
 
 	/**
@@ -155,7 +136,7 @@ class PlaylistBuilder
 
 	/**
 	 * Return all the entries found in input Playlist
-	 * @see \Orkan\Winamp\Playlists\PlaylistBuilder::$main
+	 * @see \Orkan\Winamp\Tools\PlaylistBuilder::$main
 	 *
 	 * @return array Main array
 	 */
@@ -166,18 +147,20 @@ class PlaylistBuilder
 	}
 
 	/**
-	 * Return all path lines found in the original Playlist
-	 * @see \Orkan\Winamp\Playlists\PlaylistBuilder::$main['line']
+	 * Return playlist paths. Preserve keys
 	 *
-	 * @return array Original path entries
+	 * @see \Orkan\Winamp\Tools\PlaylistBuilder::$main
+	 * @see \Orkan\Winamp\Tools\PlaylistBuilder::add()
+	 *
+	 * @param string $key Key name from $this->main array: orig|path|name
 	 */
-	public function lines(): array
+	public function paths( string $key = 'path' ): array
 	{
 		$this->load();
 
 		$out = [];
-		foreach ( $this->main as $val ) {
-			$out[] = $val['line'];
+		foreach ( $this->main as $k => $v ) {
+			$out[$k] = $v[$key];
 		}
 
 		return $out;
@@ -193,7 +176,7 @@ class PlaylistBuilder
 		foreach ( (array) $keys as $id ) {
 			if ( isset( $this->main[$id] ) ) {
 				$this->stats[$stat]['count']++;
-				$this->stats[$stat]['items'][] = $this->main[$id]['line'];
+				$this->stats[$stat]['items'][$id] = $this->main[$id]['path'];
 				unset( $this->main[$id] );
 				$this->isDirty = true;
 			}
@@ -208,12 +191,18 @@ class PlaylistBuilder
 	 */
 	public function duplicates( bool $remove = false ): array
 	{
-		$unique = $dupes = $all = [];
 		$this->load();
+
+		$unique = $dupes = $all = [];
 
 		foreach ( $this->main as $id => $item ) {
 
 			$key = $item['path'];
+
+			// Dont check missing tracks
+			if ( !$key ) {
+				continue;
+			}
 
 			if ( isset( $unique[$key] ) ) {
 				$dupes[$key][] = $id;
@@ -226,6 +215,7 @@ class PlaylistBuilder
 		}
 
 		$remove && $this->remove( $all, 'dupes' );
+
 		return $dupes;
 	}
 
@@ -239,7 +229,7 @@ class PlaylistBuilder
 	{
 		if ( $this->main[$id]['path'] != $path ) {
 			$this->stats['moved']['count']++;
-			$this->stats['moved']['items'][] = $this->main[$id]['line'];
+			$this->stats['moved']['items'][$id] = $this->main[$id]['path'];
 			$this->main[$id]['path'] = $path;
 			$this->isDirty = true;
 		}
@@ -252,12 +242,20 @@ class PlaylistBuilder
 
 	/**
 	 * Tells whether the main array has been modified or not
-	 *
-	 * @return boolean
 	 */
 	public function isDirty()
 	{
 		return $this->isDirty;
+	}
+
+	/**
+	 * Count all items
+	 */
+	public function count()
+	{
+		$this->load();
+
+		return count( $this->main );
 	}
 
 	/**
@@ -273,43 +271,67 @@ class PlaylistBuilder
 			return;
 		}
 
-		if ( !in_array( $this->type, self::SUPPORTED_TYPES ) ) {
-			throw new \Exception( sprintf( 'File type "%s" not in supproted extensions: %s', $this->type, implode( ', ', self::SUPPORTED_TYPES ) ) );
+		if ( !in_array( $this->cfg['type'], self::SUPPORTED_TYPES ) ) {
+			throw new \Exception( sprintf( 'File type "%s" not in supproted extensions: %s', $this->cfg['type'], implode( ', ', self::SUPPORTED_TYPES ) ) );
 		}
 
-		$toUtf = 'm3u' == $this->type;
+		$toUtf = 'm3u' == $this->cfg['type'];
 		$lines = file( $this->file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+		$count = count( $lines );
 
-		count( $lines ) && $lines[0] = str_replace( $this->bom, '', $lines[0] );
+		$count && $lines[0] = str_replace( $this->cfg['bom'], '', $lines[0] );
 
+		// Compute abolute paths from playlist location
+		$cwd = getcwd();
+		chdir( $this->cfg['base'] );
+
+		$i = 0;
 		foreach ( $lines as $line ) {
 
-			if ( empty( $line ) || 0 === strpos( $line, '#EXT' ) ) {
-				continue;
-			}
+			$toUtf && $line = iconv( $this->cfg['cp'], 'UTF-8', $line );
+			$isTrack = 0 !== strpos( $line, '#EXT' );
 
-			$toUtf && $line = iconv( $this->codePage, 'UTF-8', $line );
+			$isTrack && $this->add( $line, true );
 
-			$this->add( $line );
+			// Callback (current, count, line, added)
+			isset( $this->cfg['onLoad'] ) && call_user_func( $this->cfg['onLoad'], ++$i, $count, $line, $isTrack );
 		}
+
+		// Recover current working dir
+		chdir( $cwd );
 	}
 
 	/**
 	 * Add new entry(s) to playlist.
+	 *
+	 * @param mixed $lines String or array of strings
+	 * @param bool  $abs   Compute absolute path (from current working dir!)
 	 */
-	public function add( $lines )
+	public function add( $lines, bool $abs = false )
 	{
 		$lines = (array) $lines;
 
 		foreach ( $lines as $line ) {
 
+			if ( empty( $line ) ) {
+				continue;
+			}
+
+			$path = $abs ? realpath( $line ) : $line;
+
 			/* @formatter:off */
 			$this->main[] = [
-				'line' => $line, // original entry
-				'path' => $line, // new path to save
+				'orig' => $line, // original entry
+				'path' => $path, // new path to save
 				'name' => basename( $line ), // sort by filename
 			];
 			/* @formatter:on */
+
+			if ( !$path ) {
+				$id = Utils::lastKey( $this->main );
+				$this->stats['missing']['count']++;
+				$this->stats['missing']['items'][$id] = $line;
+			}
 
 			$this->isDirty = true;
 		}
@@ -323,13 +345,15 @@ class PlaylistBuilder
 	 * Note, it's up to the client to decide whether to save the playlist or not. Use isDirty()
 	 * method to find out if any changes has been made to the playlist.
 	 *
-	 * @param bool $write Set to false for dry-run
-	 * @param bool $backup Make a backup of original playlist?
+	 * @param bool   $write  Set to false for dry-run
+	 * @param bool   $backup Make a backup of original playlist?
 	 * @param string $format Force output format. Default is to use input format
-	 * @return array File paths of saved files
+	 * @param string $kind   Type of path to be saved in resulting playlist file: orig|path
+	 * @return array         File paths of saved files
 	 */
-	public function save( bool $write = true, bool $backup = true, string $format = '' ): array
+	public function save( bool $write = true, bool $backup = true, string $format = '', string $kind = 'path' ): array
 	{
+		$this->load();
 
 		// -------------------------------------------------------------------------------------------------------------
 		// Generate
@@ -351,21 +375,21 @@ class PlaylistBuilder
 			}
 			// END : Id3Tag --------------------------------------------------------------------------------------------
 
-			$lines .= $item['path'] . PHP_EOL;
+			$lines .= $item[$kind] . PHP_EOL;
 		}
 
 		// -------------------------------------------------------------------------------------------------------------
 		// Save
 		$back = '';
-		$ext = $format ?: $this->type();
+		$ext = $format ?: $this->cfg['type'];
 		$toAscii = 'm3u' == $ext;
 		$file = sprintf( '%s.%s', Utils::fileNoExt( $this->file ), $ext );
 
 		if ( $toAscii ) {
-			$lines = iconv( 'UTF-8', $this->codePage, $lines ); // to *.m3u
+			$lines = iconv( 'UTF-8', $this->cfg['cp'], $lines ); // to *.m3u
 		}
 		else {
-			$lines = $this->bom . $lines; // to *.m3u8
+			$lines = $this->cfg['bom'] . $lines; // to *.m3u8
 		}
 
 		// Don't create backup if we are not overwriting any files
@@ -390,8 +414,11 @@ class PlaylistBuilder
 	 */
 	public function sort( string $sort = 'name', string $dir = 'asc' ): bool
 	{
-		self::sortPlaylist( $this->main, $sort, $dir );
+		$this->load();
 
+		Utils::sortMultiArray( $this->main, $sort, $dir );
+
+		// Check for changes
 		$keys = array_keys( $this->main );
 		$last = 0;
 		$isDirty = false;
@@ -401,37 +428,24 @@ class PlaylistBuilder
 				break;
 			}
 		}
+
 		$this->isDirty |= $isDirty;
+
 		return $isDirty;
 	}
 
 	/**
-	 * Sorts multi-dimensional array by sub-array key
-	 * Maintains key assigments!
+	 * Randomize main array
+	 * Maintain key assigments!
 	 *
-	 * @param array $playlists
-	 * @param string $sort
-	 * @param string $dir
-	 * @return bool
+	 * @return bool Did the playlist changed?
 	 */
-	public static function sortPlaylist( array &$playlists, string $sort = '', string $dir = 'asc' ): bool
+	public function shuffle(): bool
 	{
-		if ( empty( $playlists ) || empty( $sort ) || !isset( $playlists[0][$sort] ) ) {
-			return false;
-		}
+		$this->load();
 
-		uasort( $playlists, function ( $a, $b ) use ($sort, $dir ) {
-
-			if ( is_int( $a[$sort] ) ) {
-				$cmp = $a[$sort] < $b[$sort] ? -1 : 1;
-			}
-			else {
-				$cmp = strcasecmp( $a[$sort], $b[$sort] );
-			}
-
-			// Keep ASC sorting for unknown [dir]
-			return 'desc' == $dir ? -$cmp : $cmp;
-		} );
+		Utils::shuffleArray( $this->main );
+		$this->isDirty = true;
 
 		return true;
 	}

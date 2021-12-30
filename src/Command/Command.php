@@ -8,6 +8,7 @@ namespace Orkan\Winamp\Command;
 
 use Orkan\Utils;
 use Orkan\Winamp\Factory;
+use Orkan\Winamp\Tools\Winamp;
 use Symfony\Bridge\Monolog\Handler\ConsoleHandler;
 use Symfony\Component\Console\Command\Command as BaseCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -72,8 +73,8 @@ class Command extends BaseCommand
 		/* @formatter:off */
 		return [
 			// Services:
-			'M3UTagger'       => 'Orkan\\Winamp\\Tags\\M3UTagger',
-			'PlaylistBuilder' => 'Orkan\\Winamp\\Playlists\\PlaylistBuilder',
+			'M3UTagger'       => 'Orkan\\Winamp\\Tools\\M3UTagger',
+			'PlaylistBuilder' => 'Orkan\\Winamp\\Tools\\PlaylistBuilder',
 		];
 		/* @formatter:on */
 	}
@@ -163,7 +164,7 @@ class Command extends BaseCommand
 		$base = dirname( $file );
 		$this->Logger->info( 'Extracting playlists from: ' . $file );
 
-		foreach ( $this->loadPlaylistsXml( $file ) as $val ) {
+		foreach ( Winamp::loadPlaylists( $file ) as $val ) {
 
 			if ( is_file( $loc = $base . DIRECTORY_SEPARATOR . $val['filename'] ) ) {
 				$pls[$val['title']] = $loc;
@@ -175,36 +176,5 @@ class Command extends BaseCommand
 
 		$this->Logger->info( sprintf( 'Found %d playlists', count( $pls ) ) );
 		return $pls;
-	}
-
-	/**
-	 * Load playlists.xml into array
-	 *
-	 * @param string $xmlFile
-	 * @return array
-	 */
-	protected function loadPlaylistsXml( string $xmlFile ): array
-	{
-		$Xml = simplexml_load_file( $xmlFile );
-
-		$out = [];
-		foreach ( $Xml->playlist as $playlist ) {
-
-			$attr = [];
-			foreach ( $playlist->attributes() as $k => $v ) {
-
-				$key = (string) $k;
-				$val = (string) $v;
-
-				// The 'title' can be number like, but we need it as !string! later in sort()
-				// Other numeric attributes should remain integers
-				$val = 'title' == $key || !is_numeric( $val ) ? $val : (int) $val;
-
-				$attr[$key] = $val;
-			}
-			$out[] = $attr;
-		}
-
-		return $out;
 	}
 }

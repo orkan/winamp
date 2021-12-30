@@ -7,7 +7,8 @@
 namespace Orkan\Winamp\Command;
 
 use Orkan\Utils;
-use Orkan\Winamp\Playlists\PlaylistBuilder;
+use Orkan\Winamp\Tools\PlaylistBuilder;
+use Orkan\Winamp\Tools\Winamp;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -72,7 +73,7 @@ class ShowCommand extends Command
 		/* @formatter:on */
 		$this->Logger->debug( 'Input arguments: ' . Utils::print_r( $args ) );
 
-		$pls = $this->loadPlaylistsXml( $args['infile'] );
+		$pls = Winamp::loadPlaylists( $args['infile'] );
 		DEBUG && $this->logPlaylistArray( $pls );
 
 		if ( empty( $pls ) ) {

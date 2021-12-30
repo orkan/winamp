@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2021 Orkan <orkans@gmail.com>
  */
-namespace Orkan\Winamp\Tags;
+namespace Orkan\Winamp\Tools;
 
 /**
  * Encapsulates james-heinrich/getid3 under M3UInterface
