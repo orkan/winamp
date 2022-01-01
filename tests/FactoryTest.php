@@ -2,7 +2,7 @@
 /*
  * This file is part of the orkan/winamp package.
  *
- * Copyright (c) 2021 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans@gmail.com>
  */
 
 /**

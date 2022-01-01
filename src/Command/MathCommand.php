@@ -2,7 +2,7 @@
 /*
  * This file is part of the orkan/winamp package.
  *
- * Copyright (c) 2021 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans@gmail.com>
  */
 namespace Orkan\Winamp\Command;
 
@@ -43,6 +43,7 @@ class MathCommand extends Command
 		$this->addArgument( 'b', InputArgument::REQUIRED, "Playlist B ($extensions)" );
 		$this->addArgument( 'o', InputArgument::REQUIRED, "Output playlist ($extensions)" );
 		$this->addOption( 'method', 'm', InputOption::VALUE_REQUIRED, 'Math method: add|sub', 'sub' );
+		$this->addOption( 'sort', null, InputOption::VALUE_NONE, 'Sort output playlist' );
 		$this->addOption( 'no-ext', null, InputOption::VALUE_NONE, 'Do not create #EXTINF lines in Output playlist' );
 		$this->addOption( 'no-backup', null, InputOption::VALUE_NONE, 'Do not backup overwriten playlist' );
 	}
@@ -79,9 +80,9 @@ class MathCommand extends Command
 			throw new \InvalidArgumentException( sprintf( 'Method "%s" is not supported yet :(', $method ) );
 		}
 
-		$this->Logger->notice( '=========================' );
-		$this->Logger->notice( $this->methods[$method] . ' playlists:' );
-		$this->Logger->notice( '=========================' );
+		$this->Logger->info( '=========================' );
+		$this->Logger->info( $this->methods[$method] . ' playlists:' );
+		$this->Logger->info( '=========================' );
 		$this->Logger->debug( 'Args: ' . Utils::print_r( array_merge( $input->getOptions(), $input->getArguments() ) ) );
 
 		// =============================================================================================================
@@ -100,25 +101,33 @@ class MathCommand extends Command
 		// Output playlist
 		$Tagger = $input->getOption( 'no-ext' ) ? null : $this->Factory->create( 'M3UTagger' );
 		$codePage = $input->getOption( 'code-page' );
-		$PlaylistOut = $this->Factory->create( 'PlaylistBuilder', $pls['out']['path'], $Tagger, [ 'cp' => $codePage ] );
-		$PlaylistOut->add( $out );
+		$Playlist = $this->Factory->create( 'PlaylistBuilder', $pls['out']['path'], $Tagger, [ 'cp' => $codePage ] );
+		$Playlist->add( $out );
 
 		// Stats
 		$cPla = count( $pla );
 		$cPlb = count( $plb );
 		$cOut = count( $out );
 
-		$this->Logger->notice( 'Results:' );
+		$this->Logger->info( 'Results:' );
 
 		switch ( $method )
 		{
 			case 'add':
-				$this->Logger->notice( sprintf( 'A:%d + B:%d = O:%d entries.', $cPla, $cPlb, $cOut ) );
+				$this->Logger->notice( sprintf( '%d + %d = %d', $cPla, $cPlb, $cOut ) );
 				break;
 
 			case 'sub':
-				$this->Logger->notice( sprintf( 'A:%d - B:%d/(%d) = C:%d entries.', $cPla, ( $cPla - $cOut ), $cPlb, $cOut ) );
+				$this->Logger->notice( sprintf( '%d - %d (of %d) = %d', $cPla, ( $cPla - $cOut ), $cPlb, $cOut ) );
 				break;
+		}
+
+		// ---------------------------------------------------------------------------------------------------------
+		// Sort
+		if ( $input->getOption( 'sort' ) ) {
+			if( $Playlist->sort() ) {
+				$this->Logger->info( sprintf( 'Sort' ) );
+			}
 		}
 
 		// ---------------------------------------------------------------------------------------------------------
@@ -127,11 +136,11 @@ class MathCommand extends Command
 		$isBackup = !$input->getOption( 'no-backup' );
 
 		$strBackup = $isBackup ? ' +backup' : '';
-		$save = $PlaylistOut->save( !$isDry, $isBackup, '', 'orig' ); // save original path entries
+		$save = $Playlist->save( !$isDry, $isBackup, '', 'orig' ); // save original path entries
 
-		$this->Logger->notice( sprintf( "Save [%s]%s", basename( $pls['out']['path'] ), $strBackup ) );
-		$this->Logger->info( 'File: ' . $save['file'] );
-		$isBackup && $this->Logger->info( 'Back: ' . ( $save['back'] ?: '---' ) );
+		$this->Logger->info( sprintf( "Save [%s]%s", basename( $pls['out']['path'] ), $strBackup ) );
+		$this->Logger->info( sprintf( 'Saved "%s"', $save['file'] ) );
+		$isBackup && $this->Logger->info( sprintf( 'Back "%s"', $save['back'] ?: '---' ) );
 
 		return Command::SUCCESS;
 	}

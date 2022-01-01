@@ -2,12 +2,11 @@
 /*
  * This file is part of the orkan/winamp package.
  *
- * Copyright (c) 2021 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans@gmail.com>
  */
 namespace Orkan\Winamp\Command;
 
 use Orkan\Utils;
-use Orkan\Winamp\Tools\PlaylistBuilder;
 use Orkan\Winamp\Tools\Winamp;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
@@ -88,7 +87,7 @@ class ShowCommand extends Command
 			}
 		}
 		else {
-			PlaylistBuilder::sortPlaylist( $pls, $args['sort'], $args['dir'] );
+			Utils::sortMultiArray( $pls, $args['sort'], $args['dir'] );
 			$isSort = true;
 		}
 

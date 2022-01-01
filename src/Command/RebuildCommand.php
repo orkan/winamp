@@ -2,7 +2,7 @@
 /*
  * This file is part of the orkan/winamp package.
  *
- * Copyright (c) 2021 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans@gmail.com>
  */
 namespace Orkan\Winamp\Command;
 
@@ -160,9 +160,9 @@ EOT );
 	{
 		parent::execute( $input, $output );
 
-		$this->Logger->notice( '=========================' );
-		$this->Logger->notice( 'Rebuild Winamp playlists:' );
-		$this->Logger->notice( '=========================' );
+		$this->Logger->info( '=========================' );
+		$this->Logger->info( 'Rebuild Winamp playlists:' );
+		$this->Logger->info( '=========================' );
 		$this->Logger->debug( 'Args: ' . Utils::print_r( array_merge( $input->getOptions(), $input->getArguments() ) ) );
 
 		$infile = $input->getOption( 'infile' );
@@ -201,8 +201,8 @@ EOT );
 			throw new \InvalidArgumentException( sprintf( 'Unsuported output format "%s"', $format ) );
 		}
 
-		$this->Logger->debug( 'Resolved [Media folder] : ' . $mediaDir );
-		$this->Logger->debug( 'Resolved [Escape folder]: ' . $escDir );
+		$this->Logger->debug( sprintf( 'Resolved [Media folder] "%s"', $mediaDir ) );
+		$this->Logger->debug( sprintf( 'Resolved [Escape folder] "%s"', $escDir ) );
 
 		$Tagger = $input->getOption( 'no-ext' ) ? null : $this->Factory->create( 'M3UTagger' );
 		$codePage = $input->getOption( 'code-page' ); // For *.m3u files only
@@ -216,8 +216,8 @@ EOT );
 			$playlistCount = $Playlist->count();
 			$playlistCountSkip = 0;
 
-			$this->Logger->notice( sprintf( 'Load [%s] (%s)', $playlistName, $playlistPath ) );
-			$this->Logger->debug( 'Items: ' . $playlistCount );
+			$this->Logger->notice( sprintf( 'Load [%s] "%s"', $playlistName, $playlistPath ) );
+			$this->Logger->info( sprintf( 'Found %d tracks', $playlistCount ) );
 
 			// ---------------------------------------------------------------------------------------------------------
 			// PRE Duplicates
@@ -246,13 +246,13 @@ EOT );
 				/* @formatter:on */
 
 				if ( 'Skip' == $itemPath ) {
-					$this->Logger->notice( sprintf( 'Skiping "%s"', $item['orig'] ) );
+					$this->Logger->notice( sprintf( '- skip "%s"', $item['orig'] ) );
 					$Playlist->path( $key, $item['orig'] ); // replace missing realpath with original entry
 					$playlistCountSkip++;
 					continue;
 				}
 				if ( 'Remove' == $itemPath ) {
-					$this->Logger->notice( sprintf( 'Removing "%s"', $item['orig'] ) );
+					$this->Logger->notice( sprintf( '- remove "%s"', $item['orig'] ) );
 					$Playlist->remove( $key );
 					continue;
 				}
@@ -275,9 +275,9 @@ EOT );
 				// Update
 				$itemPath = realpath( $itemPath );
 				if ( $item['orig'] != $itemPath ) {
-					$this->Logger->info( 'Updated:' );
-					$this->Logger->info( '<-- ' . $item['orig'] );
-					$this->Logger->info( '--> ' . $itemPath );
+					$this->Logger->notice( '- update:' );
+					$this->Logger->notice( sprintf( '  <-- "%s"', $item['orig'] ) );
+					$this->Logger->notice( sprintf( '  --> "%s"', $itemPath ) );
 					$Playlist->path( $key, $itemPath );
 				}
 
@@ -299,8 +299,9 @@ EOT );
 			// ---------------------------------------------------------------------------------------------------------
 			// Sort
 			if ( $input->getOption( 'sort' ) ) {
-				$i = $Playlist->sort();
-				$this->Logger->info( sprintf( 'Sort: %s', $i ? 'changed' : 'no change' ) );
+				if ( $Playlist->sort() ) {
+					$this->Logger->info( sprintf( 'Sort' ) );
+				}
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
@@ -321,9 +322,9 @@ EOT );
 
 				$save = $Playlist->save( !$isDry, $isBackup, $outFormat );
 
-				$this->Logger->notice( sprintf( "Save [%s]%s%s", $playlistName, $strForce, $strBackup ) );
-				$this->Logger->info( 'File: ' . $save['file'] );
-				$isBackup && $this->Logger->info( 'Back: ' . ( $save['back'] ?: '---' ) );
+				$this->Logger->info( sprintf( "Save [%s]%s%s", $playlistName, $strForce, $strBackup ) );
+				$this->Logger->info( sprintf( 'Saved "%s"', $save['file'] ) );
+				$isBackup && $this->Logger->info( sprintf( 'Back "%s"', $save['back'] ?: '---' ) );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
@@ -344,7 +345,7 @@ EOT );
 			if ( $stats['updated'] ) {
 				/* @formatter:off */
 				$this->Logger->notice( sprintf(
-					'Updated %2$d paths: ' .
+					'- %2$d paths updated: ' .
 					'%3$d moved, %4$d removed, %5$s dupes --> ' .
 					'%6$d before, %7$d after (%8$d erased, %9$d skiped)',
 					$playlistName, // 1
@@ -382,8 +383,6 @@ EOT );
 		// Summary
 		if ( $this->stats['count'] > 1 ) {
 
-			$this->Logger->notice( '------------------' );
-			$this->Logger->notice( 'Summary:' );
 			$this->Logger->notice( '------------------' );
 
 			/* @formatter:off */

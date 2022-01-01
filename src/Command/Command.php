@@ -2,7 +2,7 @@
 /*
  * This file is part of the orkan/winamp package.
  *
- * Copyright (c) 2021 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans@gmail.com>
  */
 namespace Orkan\Winamp\Command;
 
@@ -162,7 +162,7 @@ class Command extends BaseCommand
 
 		$pls = [];
 		$base = dirname( $file );
-		$this->Logger->info( 'Extracting playlists from: ' . $file );
+		$this->Logger->info( sprintf( 'Load "%s"', $file ) );
 
 		foreach ( Winamp::loadPlaylists( $file ) as $val ) {
 
@@ -170,7 +170,7 @@ class Command extends BaseCommand
 				$pls[$val['title']] = $loc;
 			}
 			else {
-				$this->Logger->warning( 'Failed to locate: ' . $val['filename'] );
+				$this->Logger->warning( sprintf( 'Failed to locate "%s"', $val['filename'] ) );
 			}
 		}
 

@@ -2,7 +2,7 @@
 /*
  * This file is part of the orkan/winamp package.
  *
- * Copyright (c) 2021 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans@gmail.com>
  */
 namespace Orkan\Winamp;
 
@@ -91,8 +91,8 @@ class Factory
 				$Handler->setFormatter( new LineFormatter( "[%datetime%] %level_name%: %message%\n", $this->cfg['log_datetime'] ) );
 				$this->Logger->pushHandler( $Handler );
 
-				$this->Logger->notice( '______________________' . Application::APP_NAME . '______________________' );
-				$this->Logger->notice( 'Command line: ' . $Input );
+				$this->Logger->info( '______________________' . Application::APP_NAME . '______________________' );
+				$this->Logger->debug( 'Command line: ' . $Input );
 				$this->Logger->debug( sprintf( 'CFG: [%s():%d] %s', __CLASS__, __LINE__, Utils::print_r( $this->cfg ) ) );
 			}
 
