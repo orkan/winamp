@@ -212,12 +212,23 @@ EOT );
 		// =============================================================================================================
 		foreach ( $this->getPlaylists( $inputFile ) as $playlistName => $playlistPath ) {
 
-			$Playlist = $this->Factory->create( 'PlaylistBuilder', $playlistPath, $Tagger, [ 'base' => $mediaDir, 'cp' => $codePage ] );
-			$playlistCount = $Playlist->count();
-			$playlistCountSkip = 0;
+			/* @formatter:off */
+			$Playlist = $this->Factory->create(
+				'PlaylistBuilder',
+				$playlistPath,
+				$Tagger,
+				[
+					'base'   => $mediaDir,
+					'cp'     => $codePage,
+					'onLoad' => [ $this, 'onPlaylistLoad' ],
+				]);
+			/* @formatter:on */
 
 			$this->Logger->notice( sprintf( 'Load [%s] "%s"', $playlistName, $playlistPath ) );
-			$this->Logger->info( sprintf( 'Found %d tracks', $playlistCount ) );
+
+			$playlistCount = $Playlist->count();
+			$playlistCountSkip = 0;
+			$this->Logger->info( sprintf( 'Found %d tracks', $playlistCount = $Playlist->count() ) );
 
 			// ---------------------------------------------------------------------------------------------------------
 			// PRE Duplicates
@@ -300,7 +311,7 @@ EOT );
 			// Sort
 			if ( $input->getOption( 'sort' ) ) {
 				if ( $Playlist->sort() ) {
-					$this->Logger->info( sprintf( 'Sort' ) );
+					$this->Logger->info( 'Sort' );
 				}
 			}
 
@@ -323,15 +334,16 @@ EOT );
 				$save = $Playlist->save( !$isDry, $isBackup, $outFormat );
 
 				$this->Logger->info( sprintf( "Save [%s]%s%s", $playlistName, $strForce, $strBackup ) );
-				$this->Logger->info( sprintf( 'Saved "%s"', $save['file'] ) );
-				$isBackup && $this->Logger->info( sprintf( 'Back "%s"', $save['back'] ?: '---' ) );
+				$this->Logger->info( sprintf( 'Saving "%s"', $save['file'] ) );
+
+				$isBackup && $this->Logger->info( sprintf( 'Backup "%s"', $save['back'] ) );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
 			// Stats
 			$stats = $Playlist->stats();
 
-			$playlistCountFinal = count( $Playlist->items() );
+			$playlistCountFinal = $Playlist->count();
 			$stats['updated'] = $stats['moved']['count'] + $stats['removed']['count'] + $stats['dupes']['count'];
 			$stats['erased'] = $playlistCount - $playlistCountFinal;
 
@@ -440,7 +452,7 @@ EOT );
 			return $item['path']; // realpath(), see: PlaylistBuilder->load()
 		}
 
-		$this->Logger->debug( sprintf( 'Not found (#1): "%s" (at %s)', $item['orig'], $home ) );
+		$this->Logger->debug( sprintf( 'Not found (#1): "%s" at "%s"', $item['orig'], $home ) );
 		return false;
 	}
 
@@ -615,5 +627,23 @@ EOT );
 	private function getRenamedItem( string $pat, string $sub, string $name )
 	{
 		return preg_replace( "~$pat~u", $sub, $name );
+	}
+
+	/**
+	 * Callback PlaylistBuilder::onLoad
+	 */
+	public function onPlaylistLoad( int $current, int $count, string $path, bool $isTrack )
+	{
+		if ( 1 == $current ) {
+			$this->newProgressBar( 'file_lines', $count );
+		}
+
+		if ( $isTrack ) {
+			$this->incProgressBar( basename( $path ) );
+		}
+
+		if ( $current == $count ) {
+			$this->delProgressBar();
+		}
 	}
 }

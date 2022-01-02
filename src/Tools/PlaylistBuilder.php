@@ -176,7 +176,7 @@ class PlaylistBuilder
 		foreach ( (array) $keys as $id ) {
 			if ( isset( $this->main[$id] ) ) {
 				$this->stats[$stat]['count']++;
-				$this->stats[$stat]['items'][$id] = $this->main[$id]['path'];
+				$this->stats[$stat]['items'][$id] = $this->main[$id]['orig'];
 				unset( $this->main[$id] );
 				$this->isDirty = true;
 			}
@@ -287,6 +287,10 @@ class PlaylistBuilder
 
 		$i = 0;
 		foreach ( $lines as $line ) {
+
+			if ( empty( $line ) ) {
+				continue;
+			}
 
 			$toUtf && $line = iconv( $this->cfg['cp'], 'UTF-8', $line );
 			$isTrack = 0 !== strpos( $line, '#EXT' );
