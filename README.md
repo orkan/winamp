@@ -16,23 +16,26 @@ semi-automatic methods have been implemented (see Validation).
 ### > vendor\bin\winamp show
 Displays Winamp playlists
 
+### > vendor\bin\winamp math
+Add or substract playlists
+
 ### > vendor\bin\winamp rebuild
 Scan and fix all entries from Winamp playlists.xml or any provided playlist file (*.m3u). 
 
 ## Validation
-There are 5 steps to validate each playlist entry:
+There are 5 steps to validate each track:
 
 ```
-  a) Check that the entry is pointing to an existing file. If not, then:
+  a) Check that the playlist entry is pointing to an existing file. If not, then:
   b) Check that file exists in mapped location (see Relocate). If not, then:
   c) Check that file exists after renaming (see Rename). If not, then:
   d) Check that file exists in [Media folder] by testing the first letter. If not, then:
   e) Ask for an action:
-     [1] Update - enter path manualy for current entry
-     [2] Relocate - change path for all remaining files from current entry's location
-     [3] Rename - use regular expression to rename filename part for current and remaining entries
-     [4] Remove - remove current entry
-     [5] Skip (default) - leave current entry and skip to next one
+     [1] Update - enter new path for current track
+     [2] Relocate - replace path for current and remaining tracks
+     [3] Rename - rename filenames with regex pattern
+     [4] Remove - remove current playlist entry
+     [5] Skip (default) - leave current track and skip to next one
      [6] Exit - return to prompt line
 ```
 

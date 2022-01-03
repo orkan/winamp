@@ -55,6 +55,13 @@ class PlaylistBuilder
 	private $isDirty = false;
 
 	/**
+	 * Did file assigned to this instance was already read?
+	 *
+	 * @var boolean
+	 */
+	private $isLoaded = false;
+
+	/**
 	 * Id3 tagger used to generate #EXTINF tags in final playlist file
 	 *
 	 * @var M3UInterface
@@ -243,15 +250,23 @@ class PlaylistBuilder
 	/**
 	 * Tells whether the main array has been modified or not
 	 */
-	public function isDirty()
+	public function isDirty(): bool
 	{
 		return $this->isDirty;
 	}
 
 	/**
+	 * Tells whether the playlist file was already imported into $main[]
+	 */
+	public function isLoaded(): bool
+	{
+		return $this->isLoaded;
+	}
+
+	/**
 	 * Count all items
 	 */
-	public function count()
+	public function count(): int
 	{
 		$this->load();
 
@@ -260,15 +275,15 @@ class PlaylistBuilder
 
 	/**
 	 * Initialize main array from entries found in playlist.
+	 *
+	 * @throws \Exception On invalid file type (ext)
+	 * @return bool       Did reading the file actually happened?
 	 */
-	public function load()
+	public function load(): bool
 	{
-		if ( !is_file( $this->file ) ) {
-			return;
-		}
-
-		if ( !empty( $this->main ) ) {
-			return;
+		// Object created without any file assigned have nothing to load - use add() directly!
+		if ( $this->isLoaded || !is_file( $this->file ) ) {
+			return false;
 		}
 
 		if ( !in_array( $this->cfg['type'], self::SUPPORTED_TYPES ) ) {
@@ -303,6 +318,8 @@ class PlaylistBuilder
 
 		// Recover current working dir
 		chdir( $cwd );
+
+		return $this->isLoaded = true;
 	}
 
 	/**

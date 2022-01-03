@@ -55,7 +55,9 @@ class MathCommand extends Command
 	protected function execute( InputInterface $input, OutputInterface $output )
 	{
 		parent::execute( $input, $output );
+
 		$method = $input->getOption( 'method' );
+		$isDry = $input->getOption( 'dry-run' );
 
 		/* @formatter:off */
 		$pls = [
@@ -99,6 +101,12 @@ class MathCommand extends Command
 		// -------------------------------------------------------------------------------------------------------------
 
 		// Output playlist
+		// Clear output file if it exists
+		if ( !$isDry && is_file( $pls['out']['path'] ) ) {
+			unlink( $pls['out']['path'] );
+			touch( $pls['out']['path'] );
+		}
+
 		$Tagger = $input->getOption( 'no-ext' ) ? null : $this->Factory->create( 'M3UTagger' );
 		$codePage = $input->getOption( 'code-page' );
 		$Playlist = $this->Factory->create( 'PlaylistBuilder', $pls['out']['path'], $Tagger, [ 'cp' => $codePage ] );
@@ -125,14 +133,13 @@ class MathCommand extends Command
 		// ---------------------------------------------------------------------------------------------------------
 		// Sort
 		if ( $input->getOption( 'sort' ) ) {
-			if( $Playlist->sort() ) {
+			if ( $Playlist->sort() ) {
 				$this->Logger->info( sprintf( 'Sort' ) );
 			}
 		}
 
 		// ---------------------------------------------------------------------------------------------------------
 		// Save
-		$isDry = $input->getOption( 'dry-run' );
 		$isBackup = !$input->getOption( 'no-backup' );
 
 		$strBackup = $isBackup ? ' +backup' : '';

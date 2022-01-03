@@ -6,6 +6,7 @@
  */
 use Orkan\Winamp\Tests\TestCase;
 use Orkan\Winamp\Tools\PlaylistBuilder;
+use PHPUnit\Framework\Constraint\IsType;
 
 /**
  * Test suite
@@ -91,5 +92,80 @@ class PlaylistBuilderTest extends TestCase
 		$Playlist->save( true, false, '', 'orig' ); // save orig paths!
 
 		$this->assertSame( $data['body']['infile'], file_get_contents( $data['files']['infile'] ) );
+	}
+
+	/**
+	 * [pl01.m3u8]: Trigger onLoad event for every line in playlist file
+	 */
+	public function testCanRunOnloadCallbackForEachLineInPlaylistFile()
+	{
+		/* @formatter:off */
+		$data = [
+			'files' => [
+				'infile' => self::$dir['ml'] . '/pl01_01_out_ext.m3u8', // has 6 lines: 3 EXTINF + 3 paths
+			],
+		];
+		/* @formatter:on */
+
+		self::parseFiles( $data );
+
+		// Create a Test Stub with an empty method stdClass::onLoadCallback()
+		$Stub = $this->getMockBuilder( stdClass::class )->addMethods( [ 'onLoadCallback' ] )->getMock();
+
+		/**
+		 * Expect invoking it for each line in playlist file
+		 * @see PlaylistBuilder::load()
+		 * @formatter:off
+		 */
+		$Stub->expects( $this->exactly( 6 ) )->method( 'onLoadCallback' )->withConsecutive(
+		//   line, lines, text                                , track?
+			[   1,     6, $this->stringContains( '#EXTM3U' )  , false],
+			[   2,     6, $this->stringContains( '#EXTINF' )  , false],
+			[   3,     6, $this->stringContains( 'One.mp3' )  , true ], // track
+			[   4,     6, $this->stringContains( '#EXTINF' )  , false],
+			[   5,     6, $this->stringContains( 'Three.mp3' ), true ], // track
+			[   6,     6, $this->stringContains( 'Main.mp3' ) , true ], // track
+		);
+		/* @formatter:on */
+
+		// Assign mocked callback to PlaylistBuilder::load()
+		$Playlist = new PlaylistBuilder( $data['files']['infile'], null, [ 'onLoad' => [ $Stub, 'onLoadCallback' ] ] );
+
+		// trigger load() -> trigger onLoadCallback()
+		$count = $Playlist->count();
+
+		// There are 3 paths in this playlist file
+		$this->assertSame( 3, $count );
+	}
+
+	/**
+	 * [pl02.m3u8]: Do not trigger onLoad event for an empty playlist file
+	 */
+	public function testDoNotRunOnloadCallbackForAnEmptyPlaylistFile()
+	{
+		/* @formatter:off */
+		$data = [
+			'files' => [
+				'infile' => self::$dir['ml'] . '/pl01_03_sub.m3u8', // empty file!
+			],
+		];
+		/* @formatter:on */
+
+		self::parseFiles( $data );
+
+		// Create a Test Stub with an empty method stdClass::onLoadCallback()
+		$Stub = $this->getMockBuilder( stdClass::class )->addMethods( [ 'onLoadCallback' ] )->getMock();
+
+		// Expect invoking it 0 times
+		$Stub->expects( $this->exactly( 0 ) )->method( 'onLoadCallback' );
+
+		// Assign mocked callback to PlaylistBuilder::load()
+		$Playlist = new PlaylistBuilder( $data['files']['infile'], null, [ 'onLoad' => [ $Stub, 'onLoadCallback' ] ] );
+
+		// trigger load() -> trigger onLoadCallback()
+		$count = $Playlist->count();
+
+		// There are 0 paths in this playlist file
+		$this->assertSame( 0, $count );
 	}
 }

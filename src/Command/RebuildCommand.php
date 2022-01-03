@@ -94,19 +94,19 @@ Validation
 Scan all playlists from Winamp Media Library playlists.xml or any
 single playlist file and replace all paths to absolute ones (see Q&A).
 
-There are 5 steps to validate each playlist entry:
+There are 5 steps to validate each track:
 
-  a) Check that the entry is pointing to an existing file. If not, then:
+  a) Check that the playlist entry is pointing to an existing file. If not, then:
   b) Check that file exists in mapped location (see Relocate). If not, then:
   c) Check that file exists after renaming (see Rename). If not, then:
   d) Check that file exists in [Media folder] by testing the first letter. If not, then:
   e) Ask for an action:
 
-     [1] Update - enter path manualy for current entry
-     [2] Relocate - change path for all remaining files from current entry's location
-     [3] Rename - use regular expression to rename filename part for current and remaining entries
-     [4] Remove - remove current entry
-     [5] Skip (default) - leave current entry and skip to next one
+     [1] Update - enter new path for current track
+     [2] Relocate - replace path for current and remaining tracks
+     [3] Rename - rename filenames with regex pattern
+     [4] Remove - remove current playlist entry
+     [5] Skip (default) - leave current track and skip to next one
      [6] Exit - return to prompt line
 
 ------------
@@ -133,9 +133,8 @@ Example dir structure:
 Questions & Answers
 -------------------
 Why it replaces relative paths to absolute?
-Because it changes location for every entry in playlist, it's hard to
-generate relative path from old location (could be invalid) to new
-location in [Media folder]
+Because it verifies location for every track in playlist, it's imposible to
+generate relative path from an old invalid location.
 
 EOT );
 
