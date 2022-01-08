@@ -229,7 +229,7 @@ class Command extends BaseCommand
 		// Sometimes it doesnt render the last step if the redrawFreq is too low
 		$this->Bar->display(); // force refresh!
 
-		unset( $this->Bar ); // unset Bar globally!
+		unset( $this->Bar );
 		$this->output->writeln( '' ); // New line after Progress Bar!
 	}
 }

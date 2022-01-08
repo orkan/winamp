@@ -6,7 +6,6 @@
  */
 use Orkan\Winamp\Tests\TestCase;
 use Orkan\Winamp\Tools\PlaylistBuilder;
-use PHPUnit\Framework\Constraint\IsType;
 
 /**
  * Test suite
@@ -92,6 +91,28 @@ class PlaylistBuilderTest extends TestCase
 		$Playlist->save( true, false, '', 'orig' ); // save orig paths!
 
 		$this->assertSame( $data['body']['infile'], file_get_contents( $data['files']['infile'] ) );
+	}
+
+	/**
+	 * [pl02.m3u8]: Do not save
+	 * @see RebuildCommandFix01Test::testCanSkipSavingUnmodifiedPlaylist()
+	 */
+	public function testCanSkipSavingToFile()
+	{
+		/* @formatter:off */
+		$data = [
+			'files' => [
+				'infile' => self::$dir['ml'] . '/pl02.m3u', // read relative paths
+			],
+		];
+		/* @formatter:on */
+
+		self::parseFiles( $data );
+
+		$Playlist = new PlaylistBuilder( $data['files']['infile'] );
+		$resutl = $Playlist->save( false );
+
+		$this->assertSame( 0, $resutl['bytes'] );
 	}
 
 	/**

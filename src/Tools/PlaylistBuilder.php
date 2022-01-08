@@ -275,6 +275,8 @@ class PlaylistBuilder
 
 	/**
 	 * Initialize main array from entries found in playlist.
+	 * It is called internally from number of methods which needs playlist to be loaded first.
+	 * This method shoud NOT change the "dirty" flag!
 	 *
 	 * @throws \Exception On invalid file type (ext)
 	 * @return bool       Did reading the file actually happened?
@@ -290,6 +292,7 @@ class PlaylistBuilder
 			throw new \Exception( sprintf( 'File type "%s" not in supproted extensions: %s', $this->cfg['type'], implode( ', ', self::SUPPORTED_TYPES ) ) );
 		}
 
+		$oldDirty = $this->isDirty;
 		$toUtf = 'm3u' == $this->cfg['type'];
 		$lines = file( $this->file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
 		$count = count( $lines );
@@ -319,7 +322,10 @@ class PlaylistBuilder
 		// Recover current working dir
 		chdir( $cwd );
 
-		return $this->isLoaded = true;
+		$this->isDirty = $oldDirty;
+		$this->isLoaded = true;
+
+		return true;
 	}
 
 	/**
@@ -401,10 +407,16 @@ class PlaylistBuilder
 
 		// -------------------------------------------------------------------------------------------------------------
 		// Save
-		$back = '';
 		$ext = $format ?: $this->cfg['type'];
 		$toAscii = 'm3u' == $ext;
-		$file = sprintf( '%s.%s', Utils::fileNoExt( $this->file ), $ext );
+
+		/* @formatter:off */
+		$result = [
+			'file'  => sprintf( '%s.%s', Utils::fileNoExt( $this->file ), $ext ),
+			'back'  => '',
+			'bytes' => 0,
+		];
+		/* @formatter:on */
 
 		if ( $toAscii ) {
 			$lines = iconv( 'UTF-8', $this->cfg['cp'], $lines ); // to *.m3u
@@ -414,15 +426,17 @@ class PlaylistBuilder
 		}
 
 		// Don't create backup if we are not overwriting any files
-		if ( $backup && is_file( $file ) ) {
-			$back = self::backupName( $file );
-			$write && rename( $file, $back );
+		if ( $write && $backup && is_file( $result['file'] ) ) {
+			rename( $result['file'], $result['back'] = self::backupName( $result['file'] ) );
 		}
 
-		$write && file_put_contents( $file, $lines );
+		if ( $write ) {
+			$result['bytes'] = file_put_contents( $result['file'], $lines );
+		}
+
 		$this->isDirty = false;
 
-		return [ 'file' => $file, 'back' => $back ];
+		return $result;
 	}
 
 	/**

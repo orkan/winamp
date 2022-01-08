@@ -54,8 +54,8 @@ class RebuildCommandFix01Test extends TestCase
 
 		/*
 		 * Stubs aren't used since we'll use mocked playlists files instead
-		self::$Factory->stubs( 'M3UTagger', $this->createStub( self::$Factory->cfg( 'M3UTagger' ) ) );
-		self::$Factory->stubs( 'PlaylistBuilder', $this->createStub( self::$Factory->cfg( 'PlaylistBuilder' ) ) );
+		 self::$Factory->stubs( 'M3UTagger', $this->createStub( self::$Factory->cfg( 'M3UTagger' ) ) );
+		 self::$Factory->stubs( 'PlaylistBuilder', $this->createStub( self::$Factory->cfg( 'PlaylistBuilder' ) ) );
 		 */
 	}
 
@@ -67,6 +67,48 @@ class RebuildCommandFix01Test extends TestCase
 	// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Tests: Tests: Tests: Tests: Tests: Tests: Tests: Tests: Tests: Tests: Tests: Tests: Tests: Tests: Tests: Tests:
 	// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	/**
+	 * [pl01.m3u8]: Don't save playlist file if the playlist wasn't modified
+	 * @see PlaylistBuilderTest::testCanSkipSavingToFile()
+	 */
+	public function testCanSkipSavingUnmodifiedPlaylist()
+	{
+		/* @formatter:off */
+		$data = [
+			'files' => [
+				'infile' => self::$dir['ml'] . '/pl01.m3u8',
+			],
+		];
+		/* @formatter:on */
+
+		// Create "pl01.m3u8" file
+		self::parseFiles( $data );
+
+		// Set the modification time 1 hour before, so we can clearly see if the command updated the playlist file
+		touch( $data['files']['infile'], $time = time() - 3600 );
+
+		$expTime = filemtime( $data['files']['infile'] );
+		$expSum = crc32( file_get_contents( $data['files']['infile'] ) );
+
+		// Make sure we're all set!
+		$this->assertEquals( $time, $expTime, 'Test preparation failed!' );
+
+		/* @formatter:off */
+		self::$CommandTester->execute( [
+			'--infile'     => $data['files']['infile'],
+			//'--force'    => false, // <-- default
+			'--no-ext'     => false, // <-- even "turning ON" EXTINF shouldn't re-save playlist if it wasnt changed!
+			'media-folder' => self::$dir['media'],
+		] );
+		/* @formatter:on */
+
+		$actTime = filemtime( $data['files']['infile'] );
+		$actSum = crc32( file_get_contents( $data['files']['infile'] ) );
+
+		$this->assertEquals( $expTime, $actTime, 'Command re-saved unmodified playlist without --force switch!' );
+		$this->assertEquals( $expSum, $actSum, 'Command changed playlist file!' );
+	}
 
 	/**
 	 * [pl01.m3u8]: Insert #EXTM3U

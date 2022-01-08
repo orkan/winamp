@@ -227,7 +227,7 @@ EOT );
 
 			$playlistCount = $Playlist->count();
 			$playlistCountSkip = 0;
-			$this->Logger->info( sprintf( 'Found %d tracks', $playlistCount = $Playlist->count() ) );
+			$this->Logger->info( sprintf( 'Tracks: %d ', $playlistCount = $Playlist->count() ) );
 
 			// ---------------------------------------------------------------------------------------------------------
 			// PRE Duplicates
@@ -309,33 +309,7 @@ EOT );
 			// ---------------------------------------------------------------------------------------------------------
 			// Sort
 			if ( $input->getOption( 'sort' ) ) {
-				if ( $Playlist->sort() ) {
-					$this->Logger->info( 'Sort' );
-				}
-			}
-
-			// ---------------------------------------------------------------------------------------------------------
-			// Logic...
-			$isDry = $input->getOption( 'dry-run' );
-			$isBackup = !$input->getOption( 'no-backup' );
-			$outFormat = $input->getOption( 'format' ) ?: $Playlist->cfg( 'type' );
-
-			$isForce = $input->getOption( 'force' );
-			$isForce |= $outFormat != $Playlist->cfg( 'type' );
-
-			// ---------------------------------------------------------------------------------------------------------
-			// Save
-			if ( $Playlist->isDirty() || $isForce ) {
-
-				$strForce = !$Playlist->isDirty() && $isForce ? ' +force' : '';
-				$strBackup = $isBackup ? ' +backup' : '';
-
-				$save = $Playlist->save( !$isDry, $isBackup, $outFormat );
-
-				$this->Logger->info( sprintf( "Save [%s]%s%s", $playlistName, $strForce, $strBackup ) );
-				$this->Logger->info( sprintf( 'Saving "%s"', $save['file'] ) );
-
-				$isBackup && $this->Logger->info( sprintf( 'Backup "%s"', $save['back'] ) );
+				$this->Logger->info( $Playlist->sort() ? 'Sort (order changed)' : 'Sort (no change)' );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
@@ -345,35 +319,6 @@ EOT );
 			$playlistCountFinal = $Playlist->count();
 			$stats['updated'] = $stats['moved']['count'] + $stats['removed']['count'] + $stats['dupes']['count'];
 			$stats['erased'] = $playlistCount - $playlistCountFinal;
-
-			if ( $stats['removed']['count'] ) {
-				$this->Logger->info( sprintf( 'Removed (%d):', $stats['removed']['count'] ) );
-				foreach ( $stats['removed']['items'] as $val ) {
-					$this->Logger->info( sprintf( '--- %s', $val ) );
-				}
-			}
-
-			if ( $stats['updated'] ) {
-				/* @formatter:off */
-				$this->Logger->notice( sprintf(
-					'- %2$d paths updated: ' .
-					'%3$d moved, %4$d removed, %5$s dupes --> ' .
-					'%6$d before, %7$d after (%8$d erased, %9$d skiped)',
-					$playlistName, // 1
-					$stats['updated'], // 2
-					$stats['moved']['count'], // 3
-					$stats['removed']['count'], // 4
-					$input->getOption( 'dupes' ) ? $stats['dupes']['count'] : '?', // 5
-					$playlistCount, // 6
-					$playlistCountFinal, // 7
-					$stats['erased'], // 8
-					$playlistCountSkip // 9
-				));
-				/* @formatter:on */
-			}
-			else {
-				$this->Logger->info( sprintf( 'Skip [%s]', $playlistName ) );
-			}
 
 			$this->stats['count']++;
 			$this->stats['items'] += $playlistCount;
@@ -385,6 +330,47 @@ EOT );
 			$this->stats['skiped'] += $playlistCountSkip;
 			$this->stats['before'] += $playlistCount;
 			$this->stats['after'] += $playlistCountFinal;
+
+			if ( $stats['removed']['count'] ) {
+				$this->Logger->info( sprintf( 'Removed (%d):', $stats['removed']['count'] ) );
+				foreach ( $stats['removed']['items'] as $val ) {
+					$this->Logger->info( sprintf( '--- %s', $val ) );
+				}
+			}
+
+			/* @formatter:off */
+			$this->Logger->notice( sprintf(
+				'- %2$d paths updated: ' .
+				'%3$d moved, %4$d removed, %5$s dupes --> ' .
+				'%6$d before, %7$d after (%8$d erased, %9$d skiped)',
+				/*1*/ $playlistName,
+				/*2*/ $stats['updated'],
+				/*3*/ $stats['moved']['count'],
+				/*4*/ $stats['removed']['count'],
+				/*5*/ $input->getOption( 'dupes' ) ? $stats['dupes']['count'] : '?',
+				/*6*/ $playlistCount,
+				/*7*/ $playlistCountFinal,
+				/*8*/ $stats['erased'],
+				/*9*/ $playlistCountSkip,
+			));
+			/* @formatter:on */
+
+			// ---------------------------------------------------------------------------------------------------------
+			// Save
+			$isDry = $input->getOption( 'dry-run' );
+			$outFormat = $input->getOption( 'format' ) ?: $Playlist->cfg( 'type' );
+			$isBackup = !$input->getOption( 'no-backup' );
+			$isForce = $input->getOption( 'force' );
+			$isForce |= $outFormat != $Playlist->cfg( 'type' );
+
+			if ( $Playlist->isDirty() || $isForce ) {
+
+				$this->Logger->info( 'Save: ' . ( $isForce ? '+force ' : '' ) . ( $isBackup ? '+backup ' : '' ) );
+				$save = $Playlist->save( !$isDry, $isBackup, $outFormat );
+
+				$this->Logger->info( sprintf( 'Saving "%s"', $save['file'] ) );
+				$isBackup && $this->Logger->info( sprintf( 'Backup "%s"', $save['back'] ?: '---' ) );
+			}
 
 			// =========================================================================================================
 			// Next playlist...
@@ -398,18 +384,18 @@ EOT );
 
 			/* @formatter:off */
 			$this->Logger->notice( sprintf( 'In %1$d playlists found %2$d entries (%3$d moved, %4$d removed, %5$d dupes)',
-				$this->stats['count'], // 1
-				$this->stats['items'], // 2
-				$this->stats['moved'], // 3
-				$this->stats['removed'], // 4
-				$this->stats['dupes'] // 5
+				/*1*/ $this->stats['count'],
+				/*2*/ $this->stats['items'],
+				/*3*/ $this->stats['moved'],
+				/*4*/ $this->stats['removed'],
+				/*5*/ $this->stats['dupes'],
 			));
 			$this->Logger->notice( sprintf( '%1$d before, %2$d after (%3$d updated, %4$d erased, %5$d skiped)',
-				$this->stats['before'], // 1
-				$this->stats['after'], // 2
-				$this->stats['updated'], // 3
-				$this->stats['erased'], // 4
-				$this->stats['skiped'], // 5
+				/*1*/ $this->stats['before'],
+				/*2*/ $this->stats['after'],
+				/*3*/ $this->stats['updated'],
+				/*4*/ $this->stats['erased'],
+				/*5*/ $this->stats['skiped'],
 			));
 			/* @formatter:on */
 		}
@@ -433,7 +419,7 @@ EOT );
 	 */
 	private function logDupes( string $label, array $dupes )
 	{
-		$this->Logger->info( sprintf( 'Duplicates (%s): %s', $label, count( $dupes ) ?: 'none' ) );
+		$this->Logger->info( sprintf( 'Duplicates (%s): %s', $label, count( $dupes ) ) );
 		foreach ( $dupes as $entry => $ids ) {
 			$this->Logger->info( sprintf( 'x%d - %s', count( $ids ), $entry ) );
 		}
