@@ -1,14 +1,13 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- *
- * Copyright (c) 2022 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
  */
 
 /**
  * Test suite
  *
- * @author Orkan <orkans@gmail.com>
+ * @author Orkan <orkans+winamp@gmail.com>
  */
 use Orkan\Winamp\Factory;
 use Orkan\Winamp\Tests\TestCase;

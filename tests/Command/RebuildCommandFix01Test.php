@@ -1,8 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- *
- * Copyright (c) 2022 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
  */
 use Orkan\Utils;
 use Orkan\Tests\Utils as TestsUtils;
@@ -14,7 +13,7 @@ use Symfony\Component\Finder\Finder;
 /**
  * Test suite
  *
- * @author Orkan <orkans@gmail.com>
+ * @author Orkan <orkans+winamp@gmail.com>
  */
 class RebuildCommandFix01Test extends TestCase
 {

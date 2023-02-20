@@ -1,8 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- *
- * Copyright (c) 2022 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Tests;
 
@@ -13,7 +12,7 @@ use Symfony\Component\Finder\Finder;
 /**
  * Base class for all Winamp tests
  *
- * @author Orkan <orkans@gmail.com>
+ * @author Orkan <orkans+winamp@gmail.com>
  */
 class TestCase extends BaseTestCase
 {

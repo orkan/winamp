@@ -1,8 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- *
- * Copyright (c) 2022 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Command;
 
@@ -22,7 +21,7 @@ use Symfony\Component\Finder\Finder;
  * Part A: Methods to extend Command object
  * Part B: Various methods shared across diferent commands
  *
- * @author Orkan <orkans@gmail.com>
+ * @author Orkan <orkans+winamp@gmail.com>
  */
 class Command extends BaseCommand
 {

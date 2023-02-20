@@ -1,8 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- *
- * Copyright (c) 2022 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Command;
 
@@ -17,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Render playlists.xml file
  * Retrive playlists array through getPalyslists() public method.
  *
- * @author Orkan <orkans@gmail.com>
+ * @author Orkan <orkans+winamp@gmail.com>
  */
 class ShowCommand extends Command
 {

@@ -1,8 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- *
- * Copyright (c) 2022 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Application;
 
@@ -13,13 +12,13 @@ use Symfony\Component\Console\Input\InputOption;
 
 /**
  *
- * @author Orkan <orkans@gmail.com>
+ * @author Orkan <orkans+winamp@gmail.com>
  */
 class Application extends BaseApplication
 {
 	const APP_NAME = 'Winamp Media Library CLI tools by Orkan';
-	const APP_VERSION = 'v4.2.2';
-	const RELEASE_DATE = 'Sat, 08 Jan 2022 11:27:49 +01:00';
+	const APP_VERSION = 'v4.2.3';
+	const RELEASE_DATE = 'Mon, 20 Feb 2023 03:07:32 +01:00';
 
 	/**
 	 * @link https://patorjk.com/software/taag/#p=display&v=0&f=Graffiti&t=Winamp

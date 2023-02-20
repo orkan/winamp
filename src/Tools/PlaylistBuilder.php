@@ -1,8 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- *
- * Copyright (c) 2022 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Tools;
 
@@ -16,7 +15,7 @@ use Orkan\Utils;
  * It provides shorthand methods for the client to help get various informations
  * about the playlist and then decide what to do with any of the playlist entries.
  *
- * @author Orkan <orkans@gmail.com>
+ * @author Orkan <orkans+winamp@gmail.com>
  */
 class PlaylistBuilder
 {

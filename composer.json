@@ -1,14 +1,23 @@
 {
-	"name" : "orkan/winamp",
-	"description" : "Winamp Media Library CLI tools",
-	"keywords": ["winamp", "playlist", "tool", "cli", "console", "bulk", "batch", "mp3", "m3u", "move", "relocate"],
-	"homepage" : "https://github.com/orkan/winamp-cli-src",
-	"license": "GPL-3.0-or-later",
-	"authors" : [
+	"name": "orkan/winamp",
+	"description": "Winamp Media Library CLI tools",
+	"keywords": [
+		"batch",
+		"cli",
+		"console",
+		"m3u",
+		"m3u8",
+		"php",
+		"playlist",
+		"winamp"
+	],
+	"homepage": "https://github.com/orkan/winamp",
+	"license": "MIT",
+	"authors": [
 		{
-			"name" : "Orkan",
-			"role" : "Lead",
-			"email" : "orkans@gmail.com"
+			"name": "Orkan",
+			"role": "Lead",
+			"email": "orkans+winamp@gmail.com"
 		}
 	],
 	"require": {
@@ -19,27 +28,26 @@
 		"orkan/utils": "^1.6"
 	},
 	"require-dev": {
-		"orkan/utils": "^1.6"
+		"phpunit/phpunit": "^9.5",
+		"symfony/filesystem": "^5.2"
 	},
-	"autoload" : {
-		"psr-4" : {
-			"Orkan\\Winamp\\" : "src"
+	"autoload": {
+		"psr-4": {
+			"Orkan\\Winamp\\": "src"
 		}
 	},
-	"autoload-dev" : {
-		"psr-4" : {
-			"Orkan\\Winamp\\Tests\\" : "tests"
+	"autoload-dev": {
+		"psr-4": {
+			"Orkan\\Winamp\\Tests\\": "tests"
 		}
 	},
 	"bin": [
 		"winamp"
 	],
-	"config": {
-		"bin-dir": "./"
-	},
-	"extra" : {
-		"branch-alias" : {
-			"dev-master" : "4.2.x-dev"
+	"extra": {
+		"branch-alias": {
+			"dev-master": "4.2.x-dev",
+			"dev-develop": "4.x-dev"
 		}
 	}
 }

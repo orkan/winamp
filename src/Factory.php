@@ -1,8 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- *
- * Copyright (c) 2022 Orkan <orkans@gmail.com>
+ * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp;
 
@@ -23,7 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * All other services should be defined in $this->cfg
  * Class name: $this->cfg['Service']
  *
- * @author Orkan <orkans@gmail.com>
+ * @author Orkan <orkans+winamp@gmail.com>
  */
 class Factory
 {

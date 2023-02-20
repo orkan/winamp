@@ -62,10 +62,10 @@ Example:
 
 ## About
 ### Requirements
-PHP  ^7.3
+PHP  ^7.4
 
 ### Author
 [Orkan](https://github.com/orkan)
 
 ### License
-GNU GPLv3
+MIT
