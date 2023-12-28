@@ -20,7 +20,7 @@ class PlaylistBuilderTest extends TestCase
 	// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	/**
-	 * [pl02.m3u8]: Compute absolute track paths based on given cfg('base') path, rather than playlist location
+	 * [pl02.m3u]: Compute absolute track paths based on given cfg('base') path, rather than playlist location
 	 */
 	public function testCanFindAbsPathsFromBaseLocation()
 	{
@@ -42,7 +42,7 @@ class PlaylistBuilderTest extends TestCase
 	}
 
 	/**
-	 * [pl02.m3u8]: Compute absolute track paths based on playlist location
+	 * [pl02.m3u]: Compute absolute track paths based on playlist location
 	 */
 	public function testCanNotFindAbsPathsFromPlaylistLocation()
 	{
@@ -72,7 +72,7 @@ class PlaylistBuilderTest extends TestCase
 	}
 
 	/**
-	 * [pl02.m3u8]: Save 'orig' tracks instead of absolute
+	 * [pl02.m3u]: Save 'orig' tracks instead of absolute
 	 */
 	public function testCanSaveOriginalTrackEntries()
 	{
@@ -93,7 +93,60 @@ class PlaylistBuilderTest extends TestCase
 	}
 
 	/**
-	 * [pl02.m3u8]: Do not save
+	 * [pl01.m3u8]: Automaticaly remove missing path from entries
+	 * The PlaylistBuilder::load() uses abs() to lookup entries. For missing entries abs() returns false.
+	 */
+	public function testCanSaveAutoRemovedEntry()
+	{
+		/* @formatter:off */
+		$data = [
+			'files' => [
+				'infile' => self::$dir['ml'] . '/pl01.m3u8',
+				'expect' => self::$dir['ml'] . '/pl01_06_out.m3u8', // removed missing file
+			],
+		];
+		/* @formatter:on */
+
+		self::parseFiles( $data );
+
+		$Playlist = new PlaylistBuilder( $data['files']['infile'] );
+		$Playlist->save();
+
+		$this->assertSame( $data['body']['expect'], file_get_contents( $data['files']['infile'] ) );
+	}
+
+	/**
+	 * [pl01.m3u8]: Manually remove missing path from entries
+	 */
+	public function testCanSaveManuallyRemovedEntry()
+	{
+		/* @formatter:off */
+		$data = [
+			'files' => [
+				'infile' => self::$dir['ml'] . '/pl01.m3u8',
+				'expect' => self::$dir['ml'] . '/pl01_07_out.m3u8', // removed missing file
+			],
+		];
+		/* @formatter:on */
+
+		self::parseFiles( $data );
+
+		$Playlist = new PlaylistBuilder( $data['files']['infile'] );
+		$items = $Playlist->items();
+
+		$id = 3; // missing file
+		$Playlist->remove( $id );
+		$stats = $Playlist->stats();
+		$this->assertSame( 1, $stats['removed']['count'] );
+		$this->assertSame( $items[$id]['orig'], $stats['removed']['items'][$id] );
+		$this->assertFalse( $items[$id]['path'] );
+
+		$Playlist->save();
+		$this->assertSame( $data['body']['expect'], file_get_contents( $data['files']['infile'] ) );
+	}
+
+	/**
+	 * [pl02.m3u]: Do not save
 	 * @see RebuildCommandFix01Test::testCanSkipSavingUnmodifiedPlaylist()
 	 */
 	public function testCanSkipSavingToFile()
@@ -112,6 +165,27 @@ class PlaylistBuilderTest extends TestCase
 		$resutl = $Playlist->save( false );
 
 		$this->assertSame( 0, $resutl['bytes'] );
+	}
+
+	/**
+	 * [pl02.m3u]: Shuffle playlist
+	 */
+	public function testCanShufflePlaylist()
+	{
+		/* @formatter:off */
+		$data = [
+			'files' => [
+				'infile' => self::$dir['ml'] . '/pl02.m3u', // read relative paths
+			],
+		];
+		/* @formatter:on */
+
+		self::parseFiles( $data );
+
+		$Playlist = new PlaylistBuilder( $data['files']['infile'] );
+		$Playlist->shuffle();
+
+		$this->assertTrue( $Playlist->isDirty() );
 	}
 
 	/**
@@ -159,7 +233,7 @@ class PlaylistBuilderTest extends TestCase
 	}
 
 	/**
-	 * [pl02.m3u8]: Do not trigger onLoad event for an empty playlist file
+	 * [pl01.m3u8]: Do not trigger onLoad event for an empty playlist file
 	 */
 	public function testDoNotRunOnloadCallbackForAnEmptyPlaylistFile()
 	{

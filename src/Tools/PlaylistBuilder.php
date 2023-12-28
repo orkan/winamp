@@ -179,6 +179,8 @@ class PlaylistBuilder
 	 */
 	public function remove( $keys, string $stat = 'removed' )
 	{
+		$this->load();
+
 		foreach ( (array) $keys as $id ) {
 			if ( isset( $this->main[$id] ) ) {
 				$this->stats[$stat]['count']++;
@@ -277,6 +279,9 @@ class PlaylistBuilder
 	 * It is called internally from number of methods which needs playlist to be loaded first.
 	 * This method shoud NOT change the "dirty" flag!
 	 *
+	 * M3U format
+	 * @link https://en.wikipedia.org/wiki/M3U
+	 *
 	 * @throws \Exception On invalid file type (ext)
 	 * @return bool       Did reading the file actually happened?
 	 */
@@ -310,7 +315,7 @@ class PlaylistBuilder
 			}
 
 			$toUtf && $line = iconv( $this->cfg['cp'], 'UTF-8', $line );
-			$isTrack = 0 !== strpos( $line, '#EXT' );
+			$isTrack = $line[0] !== '#';
 
 			$isTrack && $this->add( $line, true );
 
@@ -354,7 +359,7 @@ class PlaylistBuilder
 			/* @formatter:on */
 
 			if ( !$path ) {
-				$id = Utils::lastKey( $this->main );
+				$id = Utils::arrayLastKey( $this->main );
 				$this->stats['missing']['count']++;
 				$this->stats['missing']['items'][$id] = $line;
 			}
@@ -450,7 +455,7 @@ class PlaylistBuilder
 	{
 		$this->load();
 
-		Utils::sortMultiArray( $this->main, $sort, $dir );
+		Utils::arraySortMulti( $this->main, $sort, $dir );
 
 		// Check for changes
 		$keys = array_keys( $this->main );
@@ -478,7 +483,7 @@ class PlaylistBuilder
 	{
 		$this->load();
 
-		Utils::shuffleArray( $this->main );
+		Utils::arrayShuffle( $this->main );
 		$this->isDirty = true;
 
 		return true;

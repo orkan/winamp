@@ -50,6 +50,9 @@ class TestCase extends BaseTestCase
 	// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	public static function setUpBeforeClass(): void
 	{
+		// Define only once, since multiple classes might be tested in one test run!
+		!defined('DEBUG') && define( 'DEBUG', getenv( 'APP_DEBUG' ) ? true : false );
+
 		if ( !isset( static::$fixture ) ) {
 			throw new \RuntimeException( 'Each test suite must set the fixture dirname in $fixture property' );
 		}
@@ -69,7 +72,7 @@ class TestCase extends BaseTestCase
 		/* @formatter:on */
 
 		self::clearDirectory( self::$dir['sandbox'] );
-		self::copyDirectory( self::$dir['fixture'], self::$dir['sandbox'] );
+		self::dirCopy( self::$dir['fixture'], self::$dir['sandbox'] );
 
 		/*
 		 * Logger
@@ -119,7 +122,7 @@ class TestCase extends BaseTestCase
 
 		foreach ( $files as $file ) {
 			if ( is_dir( $file ) ) {
-				$result &= Utils::removeDirectory( $file );
+				$result &= Utils::dirRemove( $file );
 			}
 
 			if ( file_exists( $file ) ) {
@@ -136,14 +139,14 @@ class TestCase extends BaseTestCase
 
 	protected static function clearDirectory( $directory )
 	{
-		Utils::removeDirectory( $directory );
+		Utils::dirRemove( $directory );
 		clearstatcache( true );
 		mkdir( $directory, 0777, true );
 	}
 
-	protected static function copyDirectory( $source, $destination )
+	protected static function dirCopy( $source, $destination )
 	{
-		Utils::copyDirectory( $source, $destination );
+		Utils::dirCopy( $source, $destination );
 		clearstatcache( true );
 	}
 

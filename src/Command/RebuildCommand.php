@@ -184,7 +184,7 @@ EOT );
 		}
 
 		if ( !is_file( $inputFile ) ) {
-			throw new \InvalidArgumentException( sprintf( "Playlist file not found. Was trying:\n%s", Utils::implode( $locations, ",\n" ) ) );
+			throw new \InvalidArgumentException( sprintf( "Playlist file not found. Was trying:\n%s", Utils::arrayImplode( $locations, ",\n" ) ) );
 		}
 
 		if ( !is_dir( $mediaDir = Utils::pathToAbs( $input->getArgument( 'media-folder' ), getcwd() ) ) ) {

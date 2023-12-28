@@ -86,7 +86,7 @@ class ShowCommand extends Command
 			}
 		}
 		else {
-			Utils::sortMultiArray( $pls, $args['sort'], $args['dir'] );
+			Utils::arraySortMulti( $pls, $args['sort'], $args['dir'] );
 			$isSort = true;
 		}
 
@@ -103,7 +103,7 @@ class ShowCommand extends Command
 					$table->addRow( [
 						$val['title'],
 						sprintf( "%13s", $val['songs'] ),
-						sprintf( "%18s", Utils::formatTime( $val['seconds'], false ) ),
+						sprintf( "%18s", Utils::timeString( $val['seconds'], false ) ),
 					] );
 					/* @formatter:on */
 				}
@@ -138,8 +138,8 @@ class ShowCommand extends Command
 			$this->Logger->notice( sprintf(
 				'Playlists: %1$s | Songs: %2$s | Duration: %3$s',
 				$stats['count'],
-				Utils::formatNumber( $stats['songs'] ),
-				Utils::formatTime( $stats['seconds'], false )
+				Utils::numberString( $stats['songs'] ),
+				Utils::timeString( $stats['seconds'], false )
 			));
 			/* @formatter:on */
 		}

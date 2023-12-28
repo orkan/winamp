@@ -9,7 +9,11 @@
 
 	<php>
 		<env name="APP_DEBUG" value="1" />
-		<const name="DEBUG" value="1" />
+		<!-- 
+		WARNING:
+		This constant is not initialized when running from: Eclipse > Debug > PHPUnit configuration
+		Moved to Orkan\Winamp\Tests\TestCase::setUpBeforeClass()
+		<const name="DEBUG" value="1" /> -->
 		
 		<!-- 
 		Running tests in Eclipse causes PHP::sapi_windows_vt100_support() chek to fall down.
