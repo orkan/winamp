@@ -1,12 +1,12 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
-namespace Orkan\Winamp\Command;
+namespace Orkan\Winamp\Commands;
 
 use Orkan\Utils;
-use Orkan\Winamp\Tools\PlaylistBuilder;
+use Orkan\Winamp\Tools\Playlist;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -29,6 +29,12 @@ class MathCommand extends Command
 	/* @formatter:on */
 
 	/**
+	 * Supported file extensions (*.m3u, *.pls, ...).
+	 * @var string
+	 */
+	private $types;
+
+	/**
 	 * {@inheritDoc}
 	 * @see \Symfony\Component\Console\Command\Command::configure()
 	 */
@@ -37,10 +43,12 @@ class MathCommand extends Command
 		$this->setDescription( 'Add or substract two playlists' );
 		$this->setHelp( 'Add: a + b = o. Substract: a - b = o.' );
 
-		$extensions = PlaylistBuilder::supportedTypes();
-		$this->addArgument( 'a', InputArgument::REQUIRED, "Playlist A ($extensions)" );
-		$this->addArgument( 'b', InputArgument::REQUIRED, "Playlist B ($extensions)" );
-		$this->addArgument( 'o', InputArgument::REQUIRED, "Output playlist ($extensions)" );
+		$Playlist = new Playlist( $this->Factory );
+		$this->types = $Playlist->get( 'types' );
+
+		$this->addArgument( 'a', InputArgument::REQUIRED, "Playlist A ($this->types)" );
+		$this->addArgument( 'b', InputArgument::REQUIRED, "Playlist B ($this->types)" );
+		$this->addArgument( 'o', InputArgument::REQUIRED, "Output playlist ($this->types)" );
 		$this->addOption( 'method', 'm', InputOption::VALUE_REQUIRED, 'Math method: add|sub', 'sub' );
 		$this->addOption( 'sort', null, InputOption::VALUE_NONE, 'Sort output playlist' );
 		$this->addOption( 'no-ext', null, InputOption::VALUE_NONE, 'Do not create #EXTINF lines in Output playlist' );
@@ -49,7 +57,7 @@ class MathCommand extends Command
 
 	/**
 	 * {@inheritDoc}
-	 * @see \Orkan\Winamp\Command\Command::execute()
+	 * @see \Orkan\Winamp\Commands\Command::execute()
 	 */
 	protected function execute( InputInterface $input, OutputInterface $output )
 	{
@@ -69,11 +77,16 @@ class MathCommand extends Command
 		// -------------------------------------------------------------------------------------------------------------
 		// Validate:
 		foreach ( $pls as $opt => $pl ) {
-			if ( !in_array( Utils::fileExt( $pl['path'] ), PlaylistBuilder::SUPPORTED_TYPES ) ) {
-				throw new \InvalidArgumentException( sprintf( 'Playlist "%s" not in supproted extensions: %s', $pl['path'], PlaylistBuilder::supportedTypes() ) );
+			if ( !in_array( Utils::fileExt( $pl['path'] ), Playlist::SUPPORTED_TYPES ) ) {
+				throw new \InvalidArgumentException( sprintf( 'Playlist "%s" not in supproted extensions: %s',
+					/**/ $pl['path'],
+					/**/ $this->types ) );
 			}
 			if ( in_array( $opt, [ 'pla', 'plb' ] ) && !is_file( $pl['path'] ) ) {
-				throw new \InvalidArgumentException( sprintf( '%s not found in: --%s "%s"', $pl['label'], $opt, $pl['path'] ) );
+				throw new \InvalidArgumentException( sprintf( '%s not found in: --%s "%s"',
+					/**/ $pl['label'],
+					/**/ $opt,
+					/**/ $pl['path'] ) );
 			}
 		}
 
@@ -89,8 +102,8 @@ class MathCommand extends Command
 		// =============================================================================================================
 		// Run:
 		// =============================================================================================================
-		$pla = $this->Factory->create( 'PlaylistBuilder', $pls['pla']['path'] )->paths( 'orig' );
-		$plb = $this->Factory->create( 'PlaylistBuilder', $pls['plb']['path'] )->paths( 'orig' );
+		$pla = $this->Factory->Playlist( [ 'file' => $pls['pla']['path'] ] )->paths( 'orig' );
+		$plb = $this->Factory->Playlist( [ 'file' => $pls['plb']['path'] ] )->paths( 'orig' );
 
 		$out = array_diff( $pla, $plb );
 
@@ -106,10 +119,15 @@ class MathCommand extends Command
 			touch( $pls['out']['path'] );
 		}
 
-		$Tagger = $input->getOption( 'no-ext' ) ? null : $this->Factory->create( 'M3UTagger' );
-		$codePage = $input->getOption( 'code-page' );
-		$Playlist = $this->Factory->create( 'PlaylistBuilder', $pls['out']['path'], $Tagger, [ 'cp' => $codePage ] );
-		$Playlist->add( $out );
+		/* @formatter:off */
+		$Playlist = $this->Factory->Playlist([
+			'file' => $pls['out']['path'],
+			'tags' => !$input->getOption( 'no-ext' ),
+			'cp'   => $input->getOption( 'code-page' ),
+		]);
+		/* @formatter:on */
+
+		$Playlist->insert( $out );
 
 		// Stats
 		$cPla = count( $pla );

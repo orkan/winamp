@@ -1,24 +1,21 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
-namespace Orkan\Winamp\Application;
+namespace Orkan\Winamp;
 
-use Orkan\Winamp\Command;
-use Orkan\Winamp\Factory;
-use Symfony\Component\Console\Application as BaseApplication;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
  *
  * @author Orkan <orkans+winamp@gmail.com>
  */
-class Application extends BaseApplication
+class Application extends \Symfony\Component\Console\Application
 {
 	const APP_NAME = 'Winamp Media Library CLI tools by Orkan';
-	const APP_VERSION = 'v4.3.0';
-	const RELEASE_DATE = 'Thu, 28 Dec 2023 13:34:39 +01:00';
+	const APP_VERSION = 'v5.0.0';
+	const RELEASE_DATE = 'Sun, 21 Jan 2024 16:44:58 +01:00';
 
 	/**
 	 * @link https://patorjk.com/software/taag/#p=display&v=0&f=Graffiti&t=Winamp
@@ -85,10 +82,10 @@ class Application extends BaseApplication
 	{
 		/* @formatter:off */
 		$commands = array_merge( parent::getDefaultCommands(), [
-			new Command\ShowCommand( $this->Factory ),
-			new Command\RebuildCommand( $this->Factory ),
-			new Command\MathCommand( $this->Factory ),
-			new Command\AppCommand( $this->Factory ),
+			new Commands\ShowCommand( $this->Factory ),
+			new Commands\RebuildCommand( $this->Factory ),
+			new Commands\MathCommand( $this->Factory ),
+			new Commands\AppCommand( $this->Factory ),
 		]);
 		/* @formatter:on */
 

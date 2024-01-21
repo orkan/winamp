@@ -1,9 +1,9 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
-namespace Orkan\Winamp\Command;
+namespace Orkan\Winamp\Commands;
 
 use Orkan\Utils;
 use Orkan\Winamp\Tools\Winamp;
@@ -53,13 +53,13 @@ class ShowCommand extends Command
 
 	/**
 	 * {@inheritDoc}
-	 * @see \Orkan\Winamp\Command\Command::execute()
+	 * @see \Orkan\Winamp\Commands\Command::execute()
 	 */
 	protected function execute( InputInterface $input, OutputInterface $output )
 	{
-		$this->Logger->notice( '=================' );
-		$this->Logger->notice( 'Winamp playlists:' );
-		$this->Logger->notice( '=================' );
+		$this->Logger->info( '=================' );
+		$this->Logger->info( 'Winamp playlists:' );
+		$this->Logger->info( '=================' );
 
 		/* @formatter:off */
 		$args = [
@@ -86,24 +86,24 @@ class ShowCommand extends Command
 			}
 		}
 		else {
-			Utils::arraySortMulti( $pls, $args['sort'], $args['dir'] );
+			Utils::arraySortMulti( $pls, $args['sort'], 'asc' === $args['dir'] );
 			$isSort = true;
 		}
 
 		$isSort && $this->Logger->info( sprintf( 'Sort playlists by: %s | %s', $args['sort'], $args['dir'] ) );
 		DEBUG && $isSort && $this->logPlaylistArray( $pls );
 
-		$table = new Table( $output );
+		$Table = new Table( $output );
 		switch ( $args['format'] )
 		{
 			case 'formated':
-				$table->setHeaders( [ 'Playlist [title]', 'Songs [songs]', 'Duration [seconds]' ] );
-				foreach ( $pls as $val ) {
+				$Table->setHeaders( [ 'Playlist [title]', 'Songs [songs]', 'Duration [seconds]' ] );
+				foreach ( $pls as $pl ) {
 					/* @formatter:off */
-					$table->addRow( [
-						$val['title'],
-						sprintf( "%13s", $val['songs'] ),
-						sprintf( "%18s", Utils::timeString( $val['seconds'], false ) ),
+					$Table->addRow( [
+						$pl['title'],
+						sprintf( "%13s", $pl['songs'] ),
+						sprintf( "%18s", Utils::timeString( $pl['seconds'], false ) ),
 					] );
 					/* @formatter:on */
 				}
@@ -113,21 +113,22 @@ class ShowCommand extends Command
 			default:
 				$l = strlen( count( $pls ) );
 				$baseDir = dirname( $args['infile'] );
-				$table->setHeaders( array_merge( [ 'Lp', 'On' ], array_keys( $pls[0] ) ) );
+				$Table->setHeaders( array_merge( [ 'Lp', 'On' ], array_keys( current( $pls ) ) ) );
 
-				foreach ( $pls as $key => $val ) {
+				$i = 0;
+				foreach ( $pls as $pl ) {
 					// Justify right:
-					$lp = sprintf( "%{$l}s", $key + 1 );
-					$on = file_exists( $baseDir . '/' . $val['filename'] ) ? '+' : ' ';
-					$val['songs'] = sprintf( "%6s", $val['songs'] );
-					$val['seconds'] = sprintf( "%8s", $val['seconds'] );
+					$lp = sprintf( "%{$l}s", ++$i );
+					$on = file_exists( $baseDir . '/' . $pl['filename'] ) ? '+' : ' ';
+					$pl['songs'] = sprintf( "%6s", $pl['songs'] );
+					$pl['seconds'] = sprintf( "%8s", $pl['seconds'] );
 
-					$table->addRow( array_merge( [ $lp, $on ], $val ) );
+					$Table->addRow( array_merge( [ $lp, $on ], $pl ) );
 				}
 				break;
 		}
-		$table->setStyle( 'box-double' );
-		$table->render();
+		$Table->setStyle( 'box-double' );
+		$Table->render();
 
 		// -------------------------------------------------------------------------------------------------------------
 		// Summary
@@ -135,7 +136,7 @@ class ShowCommand extends Command
 			$stats = $this->stats( $pls );
 
 			/* @formatter:off */
-			$this->Logger->notice( sprintf(
+			$this->Logger->info( sprintf(
 				'Playlists: %1$s | Songs: %2$s | Duration: %3$s',
 				$stats['count'],
 				Utils::numberString( $stats['songs'] ),
@@ -153,7 +154,7 @@ class ShowCommand extends Command
 	protected function stats( array $pls ): array
 	{
 		$stats = [ 'count' => 0, 'songs' => 0, 'seconds' => 0 ];
-		foreach ( $pls as $key => $val ) {
+		foreach ( $pls as $val ) {
 			$stats['count']++;
 			$stats['songs'] += $val['songs'];
 			$stats['seconds'] += $val['seconds'];
@@ -162,14 +163,13 @@ class ShowCommand extends Command
 	}
 
 	/**
-	 * List playlists
-	 *
-	 * @param array $arr
+	 * List playlists.
 	 */
 	protected function logPlaylistArray( array $arr ): void
 	{
-		array_walk( $arr, function ( $val, $key ) {
-			$this->Logger->debug( sprintf( 'Playlist #%d: %s', $key + 1, Utils::print_r( $val ) ) );
-		} );
+		$i = 0;
+		foreach ( $arr as $pl ) {
+			$this->Logger->debug( sprintf( 'Playlist #%d: %s', ++$i, Utils::print_r( $pl ) ) );
+		}
 	}
 }

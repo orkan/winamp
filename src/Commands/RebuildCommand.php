@@ -1,12 +1,12 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
-namespace Orkan\Winamp\Command;
+namespace Orkan\Winamp\Commands;
 
 use Orkan\Utils;
-use Orkan\Winamp\Tools\PlaylistBuilder;
+use Orkan\Winamp\Tools\Playlist;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -38,7 +38,7 @@ class RebuildCommand extends Command
 	private $stats = [
 		'count'   => 0,
 		'items'   => 0,
-		'dupes'   => 0,
+		'duped'   => 0,
 		'moved'   => 0,
 		'removed' => 0,
 		'skiped'  => 0,
@@ -70,8 +70,8 @@ class RebuildCommand extends Command
 	protected function configure()
 	{
 		// Extensions:
-		$this->inputExt = array_merge( [ 'xml' ], PlaylistBuilder::SUPPORTED_TYPES );
-		$this->outputExt = PlaylistBuilder::SUPPORTED_TYPES;
+		$this->inputExt = array_merge( [ 'xml' ], Playlist::SUPPORTED_TYPES );
+		$this->outputExt = Playlist::SUPPORTED_TYPES;
 		$this->inputExtStr = '*.' . implode( ', *.', $this->inputExt );
 
 		$this->setDescription( 'Rebuild playlists' );
@@ -145,14 +145,14 @@ EOT );
 		$this->addOption( 'action', 'a', InputOption::VALUE_REQUIRED, 'Default action for invalid entries: skip|remove|exit|ask (In --quiet or --no-interaction mode default is: "skip")', 'ask' );
 		$this->addOption( 'no-backup', null, InputOption::VALUE_NONE, 'Do not backup modified playlists' );
 		$this->addOption( 'format', 'f', InputOption::VALUE_REQUIRED, 'Output format: m3u|m3u8 (implicitly enables --force when input format differs)' );
-		$this->addOption( 'no-ext', null, InputOption::VALUE_NONE, 'Skip all #EXTINF lines (will not read Id3 tags from media files)' );
-		$this->addOption( 'force', null, InputOption::VALUE_NONE, 'Refresh playlist file even if nothing has been modified, ie. refreshes #M3U tags' );
+		$this->addOption( 'no-ext', null, InputOption::VALUE_NONE, 'Do not generate #EXTINF lines (will not read Id3 tags from media files)' );
+		$this->addOption( 'force', null, InputOption::VALUE_NONE, 'Refresh playlist file even if nothing has been modified, ie. refresh #M3U tags' );
 		$this->addOption( 'pretty-xml', null, InputOption::VALUE_NONE, 'Pretty print playlists file' );
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see \Orkan\Winamp\Command\Command::execute()
+	 * @see \Orkan\Winamp\Commands\Command::execute()
 	 */
 	protected function execute( InputInterface $input, OutputInterface $output )
 	{
@@ -202,24 +202,19 @@ EOT );
 		$this->Logger->debug( sprintf( 'Resolved [Media folder] "%s"', $mediaDir ) );
 		$this->Logger->debug( sprintf( 'Resolved [Escape folder] "%s"', $escDir ) );
 
-		$Tagger = $input->getOption( 'no-ext' ) ? null : $this->Factory->create( 'M3UTagger' );
-		$codePage = $input->getOption( 'code-page' ); // For *.m3u files only
-
 		// =============================================================================================================
 		// Each playlist
 		// =============================================================================================================
 		foreach ( $this->getPlaylists( $inputFile ) as $playlistName => $playlistPath ) {
 
 			/* @formatter:off */
-			$Playlist = $this->Factory->create(
-				'PlaylistBuilder',
-				$playlistPath,
-				$Tagger,
-				[
-					'base'   => $mediaDir,
-					'cp'     => $codePage,
-					'onLoad' => [ $this, 'onPlaylistLoad' ],
-				]);
+			$Playlist = $this->Factory->Playlist([
+				'file'   => $playlistPath,
+				'base'   => $mediaDir,
+				'tags'   => !$input->getOption( 'no-ext' ),
+				'cp'     => $input->getOption( 'code-page' ),
+				'onLoad' => [ $this, 'onPlaylistLoad' ],
+			]);
 			/* @formatter:on */
 
 			$this->Logger->notice( sprintf( 'Load [%s] "%s"', $playlistName, $playlistPath ) );
@@ -231,7 +226,8 @@ EOT );
 			// ---------------------------------------------------------------------------------------------------------
 			// PRE Duplicates
 			if ( $input->getOption( 'dupes' ) ) {
-				$this->logDupes( 'PRE check', $Playlist->duplicates( true ) );
+				$Playlist->duplicates( true );
+				$this->logDupes( 'PRE check', $Playlist->stats() );
 			}
 
 			// =========================================================================================================
@@ -256,7 +252,7 @@ EOT );
 
 				if ( 'Skip' == $itemPath ) {
 					$this->Logger->notice( sprintf( '- skip "%s"', $item['orig'] ) );
-					$Playlist->path( $key, $item['orig'] ); // replace missing realpath with original entry
+					$Playlist->itemUpdate( $key, $item['orig'] ); // replace missing realpath with original entry
 					$playlistCountSkip++;
 					continue;
 				}
@@ -287,7 +283,7 @@ EOT );
 					$this->Logger->notice( '- update:' );
 					$this->Logger->notice( sprintf( '  <-- "%s"', $item['orig'] ) );
 					$this->Logger->notice( sprintf( '  --> "%s"', $itemPath ) );
-					$Playlist->path( $key, $itemPath );
+					$Playlist->itemUpdate( $key, $itemPath );
 				}
 
 				// =====================================================================================================
@@ -301,8 +297,9 @@ EOT );
 			// ---------------------------------------------------------------------------------------------------------
 			// POST Duplicates
 			// Some paths might be resolved to same location!
-			if ( $input->getOption( 'dupes' ) && $Playlist->stats( 'moved' )['count'] ) {
-				$this->logDupes( 'POST check', $Playlist->duplicates( true ) );
+			if ( $input->getOption( 'dupes' ) && $Playlist->stats( 'moved' ) ) {
+				$Playlist->duplicates( true );
+				$this->logDupes( 'POST check', $Playlist->stats() );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
@@ -314,25 +311,28 @@ EOT );
 			// ---------------------------------------------------------------------------------------------------------
 			// Stats
 			$stats = $Playlist->stats();
+			$stats['movedCount'] = count( $stats['moved'] );
+			$stats['removedCount'] = count( $stats['removed'] );
+			$stats['dupedCount'] = count( $stats['duped'] );
+			$stats['updated'] = $stats['movedCount'] + $stats['removedCount'] + $stats['dupedCount'];
 
 			$playlistCountFinal = $Playlist->count();
-			$stats['updated'] = $stats['moved']['count'] + $stats['removed']['count'] + $stats['dupes']['count'];
 			$stats['erased'] = $playlistCount - $playlistCountFinal;
 
 			$this->stats['count']++;
 			$this->stats['items'] += $playlistCount;
-			$this->stats['dupes'] += $stats['dupes']['count'];
-			$this->stats['moved'] += $stats['moved']['count'];
-			$this->stats['removed'] += $stats['removed']['count'];
+			$this->stats['moved'] += $stats['movedCount'];
+			$this->stats['removed'] += $stats['removedCount'];
+			$this->stats['duped'] += $stats['dupedCount'];
 			$this->stats['updated'] += $stats['updated'];
 			$this->stats['erased'] += $stats['erased'];
 			$this->stats['skiped'] += $playlistCountSkip;
 			$this->stats['before'] += $playlistCount;
 			$this->stats['after'] += $playlistCountFinal;
 
-			if ( $stats['removed']['count'] ) {
-				$this->Logger->info( sprintf( 'Removed (%d):', $stats['removed']['count'] ) );
-				foreach ( $stats['removed']['items'] as $val ) {
+			if ( $stats['removed'] ) {
+				$this->Logger->info( sprintf( 'Removed (%d):', $stats['removedCount'] ) );
+				foreach ( $stats['removed'] as $val ) {
 					$this->Logger->info( sprintf( '--- %s', $val ) );
 				}
 			}
@@ -344,9 +344,9 @@ EOT );
 				'%6$d before, %7$d after (%8$d erased, %9$d skiped)',
 				/*1*/ $playlistName,
 				/*2*/ $stats['updated'],
-				/*3*/ $stats['moved']['count'],
-				/*4*/ $stats['removed']['count'],
-				/*5*/ $input->getOption( 'dupes' ) ? $stats['dupes']['count'] : '?',
+				/*3*/ $stats['movedCount'],
+				/*4*/ $stats['removedCount'],
+				/*5*/ $input->getOption( 'dupes' ) ? $stats['dupedCount'] : '?',
 				/*6*/ $playlistCount,
 				/*7*/ $playlistCountFinal,
 				/*8*/ $stats['erased'],
@@ -387,7 +387,7 @@ EOT );
 				/*2*/ $this->stats['items'],
 				/*3*/ $this->stats['moved'],
 				/*4*/ $this->stats['removed'],
-				/*5*/ $this->stats['dupes'],
+				/*5*/ $this->stats['duped'],
 			));
 			$this->Logger->notice( sprintf( '%1$d before, %2$d after (%3$d updated, %4$d erased, %5$d skiped)',
 				/*1*/ $this->stats['before'],
@@ -405,7 +405,7 @@ EOT );
 			$Xml->preserveWhiteSpace = false;
 			$Xml->formatOutput = true;
 			$Xml->load( $inputFile );
-			$filename = $input->getOption( 'no-backup' ) ? $inputFile : PlaylistBuilder::backupName( $inputFile );
+			$filename = $input->getOption( 'no-backup' ) ? $inputFile : Playlist::backupName( $inputFile );
 			$this->Logger->info( sprintf( 'Pretty print "%s"', $filename ) );
 			file_put_contents( $filename, $Xml->saveXML() );
 		}
@@ -416,11 +416,11 @@ EOT );
 	/**
 	 * A shorthand for double dupes check
 	 */
-	private function logDupes( string $label, array $dupes )
+	private function logDupes( string $label, array $stats )
 	{
-		$this->Logger->info( sprintf( 'Duplicates (%s): %s', $label, count( $dupes ) ) );
-		foreach ( $dupes as $entry => $ids ) {
-			$this->Logger->info( sprintf( 'x%d - %s', count( $ids ), $entry ) );
+		$this->Logger->info( sprintf( 'Duplicates (%s): %s', $label, count( $stats['duped'] ) ) );
+		foreach ( $stats['dupes'] as $path => $ids ) {
+			$this->Logger->info( sprintf( 'x%d - %s', count( $ids ), $path ) );
 		}
 	}
 
@@ -433,7 +433,7 @@ EOT );
 	private function pathAbs( array $item, string $home )
 	{
 		if ( $item['path'] ) {
-			return $item['path']; // realpath(), see: PlaylistBuilder->load()
+			return $item['path']; // realpath(), see: Playlist->load()
 		}
 
 		$this->Logger->debug( sprintf( 'Not found (#1): "%s" at "%s"', $item['orig'], $home ) );
@@ -614,15 +614,15 @@ EOT );
 	}
 
 	/**
-	 * Callback PlaylistBuilder::onLoad
+	 * Callback Playlist::onLoad
 	 */
-	public function onPlaylistLoad( int $current, int $count, string $path, bool $isTrack )
+	public function onPlaylistLoad( int $current, int $count, string $path, ?array $item )
 	{
 		if ( 1 == $current ) {
 			$this->newProgressBar( 'file_lines', $count );
 		}
 
-		if ( $isTrack ) {
+		if ( $item ) {
 			$this->incProgressBar( basename( $path ) );
 		}
 

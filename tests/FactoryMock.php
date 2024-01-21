@@ -1,67 +1,44 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Tests;
 
-use Monolog\Logger;
-use Monolog\Formatter\LineFormatter;
-use Monolog\Handler\RotatingFileHandler;
+use Orkan\Noop;
 
 /**
+ * Mock Factory objects.
+ *
+ * -------------------
+ * PHPUnit\Framework\MockObject\ClassIsFinalException:
+ * Class "Symfony\Component\Console\Helper\ProgressBar" is declared "final" and cannot be doubled
+ * -------------------
+ * Static methods cannot be mocked, eg. Console::writeln()
+ * -------------------
  *
  * @author Orkan <orkans+winamp@gmail.com>
  */
 class FactoryMock extends \Orkan\Winamp\Factory
 {
-	protected $Logger;
-
-	public function logger()
-	{
-		if ( !isset( $this->Logger ) ) {
-
-			/* @formatter:off */
-			$this->merge([
-				'log_level'    => Logger::DEBUG,
-				'log_keep'     => 0,
-				'log_file'     => __DIR__ . '/_log/' . $this->cfg( 'test_class' ) . '.log',
-				'log_timezone' => 'Europe/Warsaw',
-				'log_datetime' => 'Y-m-d H:i:s',
-			]);
-			/* @formatter:on */
-
-			$this->Logger = new Logger( 'ch2', [], [], new \DateTimeZone( $this->cfg['log_timezone'] ) );
-			$Handler = new RotatingFileHandler( $this->cfg['log_file'], $this->cfg['log_keep'], $this->cfg['log_level'] );
-			$Handler->setFormatter( new LineFormatter( "[%datetime%] %level_name%: %message%\n", $this->cfg['log_datetime'] ) );
-			$this->Logger->pushHandler( $Handler );
-		}
-
-		return $this->Logger;
-	}
 
 	/**
-	 * @return \PHPUnit\Framework\MockObject\MockObject
-	 */
-	public function stubs( string $name, $mock = null )
-	{
-		static $stubs = [];
-
-		if ( null !== $mock ) {
-			$stubs[$name] = $mock;
-		}
-
-		return $stubs[$name] ?? null;
-	}
-
-	/**
-	 * Return mocked object if exists or create original
+	 * ProgressBar require this mocked Output to prevent printing empty line if no format given.
 	 *
 	 * {@inheritDoc}
-	 * @see \Orkan\Winamp\Factory::create()
+	 * @see \Orkan\Winamp\Factory::Output()
 	 */
-	public function create( string $name, ...$args )
+	public function Output()
 	{
-		return $this->stubs( $name ) ?? parent::create( $name, ...$args );
+		return new Noop();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see \Orkan\Winamp\Factory::ProgressBar()
+	 */
+	public function ProgressBar( int $steps = 10, string $format = '' )
+	{
+		return new Noop();
 	}
 }

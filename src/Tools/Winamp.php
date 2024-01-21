@@ -1,7 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Tools;
 
@@ -14,9 +14,12 @@ class Winamp
 {
 
 	/**
-	 * Load playlists.xml into array
+	 * Load playlists.xml into array.
 	 *
-	 * @return array [ [ filename => 'TOP.m3u8', title => 'Najlepsze', id => '{F4DA}', songs => '3', seconds => '123' ], [...], [...] ]
+	 * Return Array(
+	 *   [TOP.m3u8] => [ filename => 'TOP.m3u8', title => 'Najlepsze', id => '{F4DA}', songs => '3', seconds => '123' ],
+	 *   [...],
+	 * )
 	 */
 	public static function loadPlaylists( string $file ): array
 	{
@@ -37,7 +40,7 @@ class Winamp
 
 				$attr[$key] = $val;
 			}
-			$out[] = $attr;
+			$out[$attr['filename']] = $attr;
 		}
 
 		return $out;

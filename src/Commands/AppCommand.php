@@ -1,12 +1,11 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
-namespace Orkan\Winamp\Command;
+namespace Orkan\Winamp\Commands;
 
-use Monolog\Handler\RotatingFileHandler;
-use Orkan\Winamp\Application\Application;
+use Orkan\Winamp\Application;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -42,7 +41,7 @@ EOT );
 
 	/**
 	 * {@inheritDoc}
-	 * @see \Orkan\Winamp\Command\Command::execute()
+	 * @see \Orkan\Winamp\Commands\Command::execute()
 	 */
 	protected function execute( InputInterface $input, OutputInterface $output )
 	{
@@ -58,11 +57,7 @@ EOT );
 				break;
 
 			case 'logfile':
-				foreach ( $this->Logger->getHandlers() as $Handler ) {
-					if ( $Handler instanceof RotatingFileHandler ) {
-						$this->Logger->notice( realpath( $Handler->getUrl() ) );
-					}
-				}
+				$this->Logger->notice( $this->Logger->getFilename() );
 				break;
 		}
 

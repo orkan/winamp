@@ -1,11 +1,11 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
 use Orkan\Utils;
 use Orkan\Tests\Utils as TestsUtils;
-use Orkan\Winamp\Application\Application;
+use Orkan\Winamp\Application;
 use Orkan\Winamp\Tests\TestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Finder\Finder;
@@ -50,12 +50,6 @@ class RebuildCommandFix01Test extends TestCase
 		 * @link https://symfony.com/doc/current/console.html#testing-commands
 		 */
 		self::$CommandTester = new CommandTester( self::$Command );
-
-		/*
-		 * Stubs aren't used since we'll use mocked playlists files instead
-		 self::$Factory->stubs( 'M3UTagger', $this->createStub( self::$Factory->cfg( 'M3UTagger' ) ) );
-		 self::$Factory->stubs( 'PlaylistBuilder', $this->createStub( self::$Factory->cfg( 'PlaylistBuilder' ) ) );
-		 */
 	}
 
 	protected function tearDown(): void
@@ -69,7 +63,7 @@ class RebuildCommandFix01Test extends TestCase
 
 	/**
 	 * [pl01.m3u8]: Don't save playlist file if the playlist wasn't modified
-	 * @see PlaylistBuilderTest::testCanSkipSavingToFile()
+	 * @see PlaylistFix03Test::testCanSkipSavingToFile()
 	 */
 	public function testCanSkipSavingUnmodifiedPlaylist()
 	{
@@ -377,6 +371,8 @@ class RebuildCommandFix01Test extends TestCase
 			'media-folder' => self::$dir['media'],
 		] );
 		/* @formatter:on */
+
+		$this->assertFileExists( self::$dir['ml'] . '/playlists.xml' );
 
 		foreach ( $data['files'] as $file ) {
 			$this->assertFileExists( Utils::fileNoExt( $file ) . '.m3u' );

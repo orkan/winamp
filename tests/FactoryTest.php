@@ -1,17 +1,16 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
- */
-
-/**
- * Test suite
- *
- * @author Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
 use Orkan\Winamp\Factory;
 use Orkan\Winamp\Tests\TestCase;
 
+/**
+ * Test Orkan\Winamp\Factory.
+ *
+ * @author Orkan <orkans+winamp@gmail.com>
+ */
 class FactoryTest extends TestCase
 {
 	protected static $fixture = 'Fix02';
@@ -68,23 +67,41 @@ class FactoryTest extends TestCase
 	 */
 	public function testCanLoadCfgViaConstructor()
 	{
-		$Factory = new Factory( $cfg = [ 'val1' => 'Val 1', 'val2' => 2 ] );
-		$this->assertSame( $cfg, $Factory->cfg() );
+		/* @formatter:off */
+		$cfg = [
+			'val1' => 'Val 1',
+			'val2' => 2,
+		];
+		/* @formatter:on */
+
+		$Factory = new Factory( $cfg );
+
+		$this->assertSame( $cfg['val1'], $Factory->get( 'val1' ) );
+		$this->assertSame( $cfg['val2'], $Factory->get( 'val2' ) );
 	}
 
 	/**
 	 */
 	public function testCanLoadCfgMerged()
 	{
+		/* @formatter:off */
+		$cfg = [
+			'val1' => 'Val 1',
+			'val2' => 2,
+		];
+		/* @formatter:on */
+
 		$_SERVER['argv'][] = '--user-cfg';
 		$_SERVER['argv'][] = $usr_file = self::$dir['sandbox'] . '/config.php';
 
-		$cfg = [ 'val1' => 'Val 1', 'val2' => 2 ];
-		$usr = require $usr_file;
-		$expected = array_merge( $cfg, $usr );
-
 		$Factory = new Factory( $cfg );
-		$this->assertSame( $expected, $Factory->cfg() );
+
+		$usr = require $usr_file;
+		$expect = array_merge( $cfg, $usr );
+		foreach ( $expect as $k => $v ) {
+			$this->assertSame( $v, $Factory->get( $k ) );
+			$this->assertSame( $v, $Factory->cfg( $k ) );
+		}
 	}
 
 	/**
@@ -92,6 +109,6 @@ class FactoryTest extends TestCase
 	public function testCanLoadMissingCfgValue()
 	{
 		$Factory = new Factory();
-		$this->assertSame( '', $Factory->cfg( 'not exist' ) );
+		$this->assertNull( $Factory->cfg( 'not exist' ) );
 	}
 }

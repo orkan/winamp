@@ -1,7 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Tests;
 
@@ -51,7 +51,8 @@ class TestCase extends BaseTestCase
 	public static function setUpBeforeClass(): void
 	{
 		// Define only once, since multiple classes might be tested in one test run!
-		!defined('DEBUG') && define( 'DEBUG', getenv( 'APP_DEBUG' ) ? true : false );
+		!defined( 'DEBUG' ) && define( 'DEBUG', (bool) getenv( 'APP_DEBUG' ) );
+		!defined( 'TESTING' ) && define( 'TESTING', true );
 
 		if ( !isset( static::$fixture ) ) {
 			throw new \RuntimeException( 'Each test suite must set the fixture dirname in $fixture property' );
@@ -66,8 +67,15 @@ class TestCase extends BaseTestCase
 			'media'    => self::$testsDir . '/_sandbox/media',
 		];
 		self::$Factory = new FactoryMock([
-			'test_class'       => basename( static::class ),
+			'log_level'        => 'DEBUG',
+			'log_debug'        => true,
+			'log_file'         => sprintf( '%s/_log/%s.log', __DIR__, basename( static::class ) ),
+			'log_keep'         => 1,
+			'log_reset'        => true,
+			'log_console'      => false, // turn off logs in console
 			'winamp_playlists' => self::$dir['ml'] . '/playlists.xml',
+			'winamp_dir'       => self::$dir['ml'],
+			'winamp_xml'       => 'playlists.xml',
 		]);
 		/* @formatter:on */
 
@@ -75,23 +83,24 @@ class TestCase extends BaseTestCase
 		self::dirCopy( self::$dir['fixture'], self::$dir['sandbox'] );
 
 		/*
-		 * Logger
+		 * [Logger]
 		 * Instead of mocking Logger class, use pre-configured Logger instance for tests purposes.
 		 * Each test suite has its own "Command under test" log file saved in tests/_log dir.
+		 * The drawback is that writing to log file now cannot be tested!
 		 */
-		self::$Logger = self::$Factory->logger();
+		self::$Logger = self::$Factory->Logger();
 
 		date_default_timezone_set( self::$Factory->cfg( 'log_timezone' ) );
 		self::$series = date( 'His' );
 
-		self::$Logger->alert( '______________________________[ SERIES ' . self::$series . ' ]______________________________' );
-		self::$Logger->alert( 'Fixture: ' . static::$fixture );
+		self::$Logger->debug( '______________________________[ SERIES ' . self::$series . ' ]______________________________' );
+		self::$Logger->debug( 'Fixture: ' . static::$fixture );
 	}
 
 	protected function setUp(): void
 	{
-		self::$Logger->alert( '' );
-		self::$Logger->alert( sprintf( '>>> TEST %s.%02d - %s(): ', self::$series, ++self::$count, $this->getName() ) );
+		self::$Logger->debug( '' );
+		self::$Logger->debug( sprintf( '>>> TEST %02$d [%1$s] %3$s(): ', self::$series, ++self::$count, $this->getName() ) );
 	}
 
 	protected function tearDown(): void
@@ -101,7 +110,8 @@ class TestCase extends BaseTestCase
 	// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Methods Methods Methods Methods Methods Methods Methods Methods Methods Methods Methods Methods Methods Methods
 	// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	protected static function getDir( string $dir ) {
+	protected static function getDir( string $dir )
+	{
 		return self::$dir[$dir];
 	}
 
@@ -185,10 +195,7 @@ class TestCase extends BaseTestCase
 	}
 
 	/**
-	 * Reset parsed file to initial state ie. after Console command execution
-	 *
-	 * @param array $data
-	 * @param string $key
+	 * Reset parsed file to initial state, ie. after Console command execution
 	 */
 	protected static function revertParsedFile( array &$data, string $key )
 	{

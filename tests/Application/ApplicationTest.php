@@ -1,10 +1,10 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
 use Orkan\Winamp\Factory;
-use Orkan\Winamp\Application\Application;
+use Orkan\Winamp\Application;
 use PHPUnit\Framework\TestCase;
 
 /**

@@ -1,9 +1,9 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
-use Orkan\Winamp\Application\Application;
+use Orkan\Winamp\Application;
 use Orkan\Winamp\Tests\TestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -47,12 +47,6 @@ class MathCommandFix03Test extends TestCase
 		 * @link https://symfony.com/doc/current/console.html#testing-commands
 		 */
 		self::$CommandTester = new CommandTester( self::$Command );
-
-		/*
-		 * Stubs aren't used since we'll use mocked playlists files instead
-		 self::$Factory->stubs( 'M3UTagger', $this->createStub( self::$Factory->cfg( 'M3UTagger' ) ) );
-		 self::$Factory->stubs( 'PlaylistBuilder', $this->createStub( self::$Factory->cfg( 'PlaylistBuilder' ) ) );
-		 */
 	}
 
 	protected function tearDown(): void

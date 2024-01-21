@@ -1,7 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
 
 /**
@@ -10,7 +10,7 @@
  * @author Orkan <orkans+winamp@gmail.com>
  */
 use Orkan\Winamp\Factory;
-use Orkan\Winamp\Application\Application;
+use Orkan\Winamp\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 
 if ( !in_array( PHP_SAPI, [ 'cli', 'phpdbg', 'embed' ], true ) ) {
@@ -36,7 +36,7 @@ $Input = new ArgvInput();
 if ( $Input->hasParameterOption( '--no-debug', true ) ) {
 	putenv( 'APP_DEBUG=' . $_ENV['APP_DEBUG'] = '0' );
 }
-define( 'DEBUG', getenv( 'APP_DEBUG' ) ? true : false );
+define( 'DEBUG', (bool) getenv( 'APP_DEBUG' ) );
 
 unset( $file );
 unset( $Input );
@@ -52,7 +52,7 @@ try {
 	$Application->run();
 }
 catch ( Throwable $e ) {
-	$Factory->logger()->error( $e->getMessage() );
+	$Factory->Logger()->error( $e->getMessage() );
 	echo sprintf( "\nIn %s line %d:\n\n  [%s]\n  %s\n\n", basename( $e->getFile() ), $e->getLine(), get_class( $e ), $e->getMessage() );
 
 	// https://symfony.com/doc/current/console/verbosity.html

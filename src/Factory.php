@@ -1,153 +1,193 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2023 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp;
 
-use Monolog\Logger;
 use Monolog\Formatter\LineFormatter;
-use Monolog\Handler\RotatingFileHandler;
+use Orkan\Logger;
 use Orkan\Utils;
-use Orkan\Winamp\Application\Application;
+use Orkan\Winamp\Tools\Exporter;
+use Orkan\Winamp\Tools\M3UTagger;
+use Orkan\Winamp\Tools\Playlist;
 use Symfony\Bridge\Monolog\Handler\ConsoleHandler;
+use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * Factory / Dependency Injection
- *
- * Because of complex setup the Logger class is hardcoded here.
- * All other services should be defined in $this->cfg
- * Class name: $this->cfg['Service']
+ * Winamp Factory
  *
  * @author Orkan <orkans+winamp@gmail.com>
  */
-class Factory
+class Factory extends \Orkan\Factory
 {
-	protected $cfg = [];
+	/*
+	 * Services:
+	 */
+	protected $Exporter;
+	protected $Utils;
 	protected $Logger;
+	protected $Output;
 
 	/**
-	 * Pass configuration via file, cmd or both
+	 * Pass configuration via file, cmd or both.
 	 */
 	public function __construct( array $cfg = [] )
 	{
+		parent::__construct( $cfg );
+		$this->merge( $this->defaults() );
+
+		// High priority CMD args!
 		$usr = ( new ArgvInput() )->getParameterOption( [ '--user-cfg', '-u' ], false, true );
 		$usr = $usr ? require $usr : [];
-		$this->cfg = array_merge( $cfg, $usr );
+		$this->merge( $usr, true );
 	}
 
 	/**
-	 * Set/Get config value
+	 * Get defaults.
 	 */
-	public function cfg( string $key = '', $val = null )
+	protected function defaults()
 	{
-		if ( isset( $val ) ) {
-			$this->cfg[$key] = $val;
-		}
-
-		if ( '' === $key ) {
-			return $this->cfg;
-		}
-
-		return $this->cfg[$key] ?? '';
+		/**
+		 * [log_header]
+		 * Add extra header after Logger init
+		 *
+		 * [log_console]
+		 * Log to Console
+		 *
+		 * [log_console_verbosity]
+		 * Log to Console verbosity level
+		 * @see OutputInterface
+		 *
+		 * [bar_format]
+		 * ProgressBar format
+		 * @see ProgressBar::initFormats()
+		 *
+		 * [bar_char]
+		 * ProgressBar character
+		 *
+		 * [bar_char_empty]
+		 * ProgressBar empty character
+		 *
+		 * @formatter:off */
+		return [
+			'log_header'            => true,
+			'log_console'           => true,
+			'log_console_verbosity' => OutputInterface::VERBOSITY_VERBOSE,
+			'bar_format'            => '[%bar%] %current%/%max% %message%',
+			'bar_char'              => '|',
+			'bar_char_empty'        => '.',
+		];
+		/* @formatter:on */
 	}
 
-	/**
-	 * Merge defaults with current config
+	/*
+	 * -----------------------------------------------------------------------------------------------------------------
+	 * SERVICES
+	 * -----------------------------------------------------------------------------------------------------------------
 	 */
-	public function merge( array $defaults )
+
+	/**
+	 * @return Exporter
+	 */
+	public function Exporter()
 	{
-		$this->cfg = array_merge( $defaults, $this->cfg );
+		return $this->Exporter ?? $this->Exporter = new Exporter( $this );
 	}
 
 	/**
-	 * Get Logger instance
-	 *
-	 * @return \Monolog\Logger
+	 * @return Utils
 	 */
-	public function logger()
+	public function Utils()
+	{
+		return $this->Utils ?? $this->Utils = new Utils();
+	}
+
+	/**
+	 * @return Logger
+	 */
+	public function Logger()
 	{
 		if ( !isset( $this->Logger ) ) {
 
-			/* @formatter:off */
-			$this->merge([
-				'log_level'    => Logger::DEBUG,
-				'log_keep'     => 0,
-				'log_file'     => dirname( __DIR__ ) . '/Winamp.log',
-				'log_timezone' => 'Europe/Berlin',
-				'log_datetime' => 'Y-m-d H:i:s',
-			]);
-			/* @formatter:on */
-
-			$this->Logger = new Logger( 'ch1', [], [], new \DateTimeZone( $this->cfg['log_timezone'] ) );
+			// ---------------------------------------------------------------------------------------------------------
+			// File:
 			$Input = new ArgvInput();
-
-			if ( !$Input->hasParameterOption( '--no-log', true ) ) {
-				$Handler = new RotatingFileHandler( $this->cfg['log_file'], $this->cfg['log_keep'], $this->cfg['log_level'] );
-				$Handler->setFormatter( new LineFormatter( "[%datetime%] %level_name%: %message%\n", $this->cfg['log_datetime'] ) );
-				$this->Logger->pushHandler( $Handler );
-
-				$this->Logger->info( '______________________' . Application::APP_NAME . '______________________' );
-				$this->Logger->debug( 'Command line: ' . $Input );
-				$this->Logger->debug( sprintf( 'CFG: [%s():%d] %s', __CLASS__, __LINE__, Utils::print_r( $this->cfg ) ) );
+			if ( $Input->hasParameterOption( '--no-log', true ) ) {
+				$this->cfg( 'log_file', '' );
 			}
 
-			/* @formatter:off */
-			$Handler = new ConsoleHandler( null, true, [
-				OutputInterface::VERBOSITY_QUIET        => Logger::WARNING, // -q
-				OutputInterface::VERBOSITY_NORMAL       => Logger::NOTICE,  //
-				OutputInterface::VERBOSITY_VERBOSE      => Logger::INFO,    // -v
-				OutputInterface::VERBOSITY_VERY_VERBOSE => Logger::DEBUG,   // -vv
-				OutputInterface::VERBOSITY_DEBUG        => Logger::DEBUG,   // -vvv
-			]);
-			/* @formatter:on */
+			$this->Logger = new Logger( $this );
 
-			$Handler->setFormatter( new LineFormatter( "%message%\n" ) );
-			$this->Logger->pushHandler( $Handler );
+			// ---------------------------------------------------------------------------------------------------------
+			if ( $this->get( 'log_console' ) ) {
+				/* @formatter:off */
+				$Handler = new ConsoleHandler( null, true, [
+					OutputInterface::VERBOSITY_QUIET        => Logger::ERROR,   // -q
+					OutputInterface::VERBOSITY_NORMAL       => Logger::NOTICE,  //
+					OutputInterface::VERBOSITY_VERBOSE      => Logger::INFO,    // -v
+					OutputInterface::VERBOSITY_VERY_VERBOSE => Logger::DEBUG,   // -vv
+					OutputInterface::VERBOSITY_DEBUG        => Logger::DEBUG,   // -vvv
+				]);
+				/* @formatter:on */
+				$Handler->setOutput( $this->Output() );
+				$Handler->setFormatter( new LineFormatter( "%message%\n" ) );
+				$this->Logger->Monolog()->pushHandler( $Handler );
+			}
+
+			// ---------------------------------------------------------------------------------------------------------
+			// Header:
+			if ( $this->get( 'log_header' ) ) {
+				$this->Logger->debug( '______________________' . Application::APP_NAME . '______________________' );
+				$this->Logger->debug( 'Command line: ' . $Input );
+				$this->Logger->debug( sprintf( 'CFG: [%s:%d] %s', __CLASS__, __LINE__, Utils::print_r( $this->cfg ) ) );
+			}
 		}
 
 		return $this->Logger;
 	}
 
 	/**
-	 * Assign CLI output to Console Handler
-	 *
-	 * When?
-	 * If using standalone Logger instance b/c ConsoleOutput is OFF by default.
-	 * @see \Symfony\Bridge\Monolog\Handler\ConsoleHandler
-	 *
-	 * How?
-	 * @see \Symfony\Component\Console\Application::run()
-	 * @see \Symfony\Component\Console\Application::configureIO()
-	 * @see \Symfony\Component\Console\Command\Command::initialize()
-	 * $Factory->initConsoleHandler( new ConsoleOutput( OutputInterface::VERBOSITY_VERBOSE ) );
+	 * @return OutputInterface
 	 */
-	public function initConsoleHandler( ConsoleOutput $output = null )
+	public function Output()
 	{
-		if ( null === $output ) {
-			$output = new ConsoleOutput();
-		}
-
-		foreach ( $this->logger()->getHandlers() as $Handler ) {
-			if ( $Handler instanceof ConsoleHandler ) {
-				$Handler->setOutput( $output );
-			}
-		}
+		return $this->Output ?? $this->Output = new ConsoleOutput( $this->get( 'log_console_verbosity' ) );
 	}
 
 	/**
-	 * Create new object
-	 *
-	 * @param  string $name    Object name to create
-	 * @param  mixed  ...$args Object args passed to constructor
-	 * @return mixed           New object
+	 * @return ProgressBar
 	 */
-	public function create( string $name, ...$args )
+	public function ProgressBar( int $steps = 10, string $format = '' )
 	{
-		$class = $this->cfg( $name );
-		return new $class( ...$args );
+		$format = $format ?: 'bar_format';
+		ProgressBar::setFormatDefinition( $format, $this->get( $format ) );
+
+		$ProgressBar = new ProgressBar( $this->Output(), $steps );
+		$ProgressBar->setFormat( $format );
+		$ProgressBar->setBarCharacter( $this->get( 'bar_char' ) );
+		$ProgressBar->setProgressCharacter( $this->get( 'bar_char' ) );
+		$ProgressBar->setEmptyBarCharacter( $this->get( 'bar_char_empty' ) );
+
+		return $ProgressBar;
+	}
+
+	/**
+	 * @return M3UTagger
+	 */
+	public function M3UTagger()
+	{
+		return new M3UTagger();
+	}
+
+	/**
+	 * @return Playlist
+	 */
+	public function Playlist( array $cfg = [] )
+	{
+		return new Playlist( $this, $cfg );
 	}
 }
