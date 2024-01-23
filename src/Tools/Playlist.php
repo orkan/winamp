@@ -462,7 +462,7 @@ class Playlist
 	}
 
 	/**
-	 * Save playlist to file.
+	 * Save tracks to file.
 	 * + generate M3U tags
 	 * + create backup of replaced playlist
 	 *
@@ -538,47 +538,36 @@ class Playlist
 	}
 
 	/**
-	 * Sort main array.
+	 * Sort tracks.
 	 *
 	 * @param  string $sort Field name to sort by
 	 * @param  bool   $asc  Sort ASC?
-	 * @return bool Did sorting changed the playlist?
+	 * @return bool Did playlist changed?
 	 */
 	public function sort( string $sort = 'name', bool $asc = true ): bool
 	{
 		$this->load();
 
-		$this->Utils->arraySortMulti( $this->main, $sort, $asc );
-
-		// Check for changes
 		$keys = array_keys( $this->main );
-		$last = 0;
-		$isDirty = false;
-		foreach ( $keys as $key ) {
-			if ( $key != $last++ ) {
-				$isDirty = true;
-				break;
-			}
-		}
+		$this->Utils->arraySortMulti( $this->main, $sort, $asc );
+		$changed = $keys !== array_keys( $this->main );
+		$this->isDirty |= $changed;
 
-		$this->isDirty |= $isDirty;
-
-		return $isDirty;
+		return $changed;
 	}
 
 	/**
-	 * Randomize main array.
-	 * Maintain key assigments!
+	 * Randomize tracks.
 	 *
-	 * @return bool Did the playlist changed?
+	 * @return bool Did playlist changed?
 	 */
 	public function shuffle(): bool
 	{
 		$this->load();
 
-		$this->Utils->arrayShuffle( $this->main );
-		$this->isDirty = true;
+		$changed = $this->Utils->arrayShuffle( $this->main );
+		$this->isDirty |= $changed;
 
-		return true;
+		return $changed;
 	}
 }

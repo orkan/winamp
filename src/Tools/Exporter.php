@@ -5,9 +5,8 @@
  */
 namespace Orkan\Winamp\Tools;
 
+use Orkan\Logging;
 use Orkan\Winamp\Factory;
-use Symfony\Component\Console\Helper\ProgressBar;
-use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Help export Winamp ML.
@@ -16,22 +15,13 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class Exporter
 {
+	use Logging;
+
 	/**
 	 * Copy tracks to cfg[export_dir]?
 	 * @var bool
 	 */
 	protected $isExport;
-
-	/**
-	 * Console output (progress bar, etc...)
-	 * @var OutputInterface
-	 */
-	protected $Output;
-
-	/**
-	 * @var ProgressBar
-	 */
-	protected $Bar;
 
 	/**
 	 * Loaded plylists from cfg.
@@ -100,18 +90,14 @@ class Exporter
 	 */
 	protected $Factory;
 	protected $Utils;
-	protected $Logger;
 
 	/**
 	 * Setup.
 	 */
 	public function __construct( Factory $Factory )
 	{
-		!defined( 'DEBUG' ) && define( 'DEBUG', (bool) getenv( 'APP_DEBUG' ) );
-
 		$this->Factory = $Factory->merge( $this->defaults() );
 		$this->Utils = $this->Factory->Utils();
-		$this->Logger = $this->Factory->Logger();
 		$this->Output = $this->Factory->Output();
 
 		$this->isExport = (bool) $this->Factory->get( 'export_dir' );
@@ -132,10 +118,6 @@ class Exporter
 	protected function defaults()
 	{
 		/**
-		 * [title_cli]
-		 * Default CMD window title
-		 * @see Exporter::cmdTitle()
-		 *
 		 * [winamp_xml]
 		 * Winamp playlists XML file name (def. playlists.xml)
 		 *
@@ -189,18 +171,12 @@ class Exporter
 		 * Extra playlists to add AS-IS without limit restrictions (unconditionally)
 		 * Array( "Title 1", "Title 2", ... )
 		 *
-		 * [usleep_bar]
-		 * Slow down progress bar
-		 *
-		 * [usleep_export]
-		 * Slow down copy tracks
-		 *
-		 * [gc]
+		 * [garbage_collect]
 		 * Garbage collect: Free up memory once is no longer used
 		 *
 		 * @formatter:off */
 		return [
-			'title_cli'       => 'Export Winamp ML',
+			'cmd_title'       => 'Export Winamp ML',
 			'winamp_xml'      => 'playlists.xml',
 			'manifest'        => 'export.json',
 			'playlist_all'    => 'Export',
@@ -218,8 +194,6 @@ class Exporter
 			'bar_adding'      => '- adding [%bar%] %current%/%max% %message%',
 			'bar_analyzing'   => '- analyzing [%bar%] %current%/%max% %message%',
 			'bar_exporting'   => '- copying [%bar%] %current%/%max% %message%',
-			'usleep_bar'      => 0,
-			'usleep_export'   => 0,
 			'garbage_collect' => getenv( 'APP_GC' ) ?: false,
 		];
 		/* @formatter:on */
@@ -260,7 +234,7 @@ class Exporter
 		while ( !$dir );
 
 		$this->Factory->cfg( $cfg, $dir );
-		$this->log( '%s set: "%s"', $msg, $dir );
+		$this->info( '%s set: "%s"', $msg, $dir );
 	}
 
 	/**
@@ -319,63 +293,6 @@ class Exporter
 	}
 
 	/**
-	 * Create progress bar.
-	 * @link https://symfony.com/doc/current/components/console/helpers/progressbar.html#bar-settings
-	 */
-	protected function barNew( int $steps = 10, string $format = '' ): void
-	{
-		// Don't display empty bar
-		if ( !$steps ) {
-			return;
-		}
-
-		$this->Bar = $this->Factory->ProgressBar( $steps, $format );
-		$this->Bar->setRedrawFrequency( 1 ); // redraws the screen every each iteration
-		$this->Bar->setMessage( '' ); // Get rif of %message% string displayed in case there are 0 steps performed
-		$this->Bar->start();
-	}
-
-	/**
-	 * Distroy progress bar.
-	 *
-	 * Make sure the ProgressBar properly displays final state.
-	 * Sometimes it doesn't render the last step if the redrawFreq is too low.
-	 *
-	 * @param bool $clear  Clear %message%
-	 * @param bool $finish Set Bar to 100%
-	 */
-	protected function barDel( bool $clear = false, bool $finish = false ): void
-	{
-		if ( !$this->Bar ) {
-			return;
-		}
-
-		$clear && $this->Bar->setMessage( '' );
-		$finish && $this->Bar->finish();
-
-		// force refresh!
-		$this->Bar->display();
-
-		// New line after Progress Bar
-		$this->Output->writeln( '' );
-
-		$this->Bar = null;
-	}
-
-	/**
-	 * Increment progress bar.
-	 *
-	 * @param string $msg     Formatted %message%
-	 * @param int    $advance Increment by...
-	 */
-	protected function barInc( string $msg = '', int $advance = 1 ): void
-	{
-		$this->Bar->advance( $advance );
-		$this->Bar->setMessage( $msg );
-		$this->sleep( 'usleep_bar' );
-	}
-
-	/**
 	 * Get info about collected tracks that going to be exported.
 	 */
 	public function stats(): array
@@ -425,8 +342,7 @@ class Exporter
 
 		$out['speed_bps'] = $out['byte_done'] / $out['time_exec'];
 
-		DEBUG && $this->Logger->debug( '$out: ' . $this->Utils->print_r( $out ) );
-		$this->sleep( 'usleep_export' );
+		DEBUG && $this->debug( '$out: ' . $this->Utils->print_r( $out ) );
 		return $out;
 	}
 
@@ -453,9 +369,9 @@ class Exporter
 		$map = $this->Factory->get( 'export_map' );
 		$sep = $this->Factory->get( 'export_sep' );
 
-		$this->log();
-		$this->log( 'Playlist [%s] "%s"', $pl['name'], $m3u );
-		$this->Logger->debug( sprintf( 'Memory: %s', $this->Utils->byteString( memory_get_usage() ) ) );
+		$this->info();
+		$this->info( 'Playlist [%s] "%s"', $pl['name'], $m3u );
+		$this->debug( $this->Utils->memory() );
 
 		if ( !is_file( $m3u ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Unable to locate playlist file: "%s"', $m3u ) );
@@ -466,7 +382,7 @@ class Exporter
 		// Don't load another Playlist if there's no space left in given total limit
 		$bytes = $this->progress['bytes'] + $this->progress['asize'];
 		if ( $total && $bytes > $total ) {
-			$this->log( '- skipped! Less than %1$s left (total size limit: %2$s)',
+			$this->info( '- skipped! Less than %1$s left (total size limit: %2$s)',
 				/*1*/ $this->Utils->byteString( $this->progress['asize'] ),
 				/*2*/ $this->Utils->byteString( $total ) );
 			return null;
@@ -476,13 +392,13 @@ class Exporter
 		// New Playlist
 		$Playlist = $this->Factory->Playlist( [ 'file' => $m3u, 'onLoad' => function ( $current, $count, $line, $item ) {
 			if ( 1 === $current ) {
-				$this->barNew( $count, 'bar_loading' ); // count == lines, not tracks!
+				$this->Factory->barNew( $count, 'bar_loading' ); // count == lines, not tracks!
 			}
 			if ( $item ) {
-				$this->barInc( $item['name'] );
+				$this->Factory->barInc( $item['name'] );
 			}
 			if ( $current === $count ) {
-				$this->barDel();
+				$this->Factory->barDel();
 			}
 		} ] );
 		$Playlist->load();
@@ -490,19 +406,19 @@ class Exporter
 
 		$Playlist->pl = $pl;
 		$Playlist->name = $pl['name'];
-		$this->log( '- found: %s tracks', $count = $Playlist->count() );
+		$this->info( '- found: %s tracks', $count = $Playlist->count() );
 
 		if ( $pl['shuffle'] ) {
-			$this->log( '- shuffle...' );
+			$this->info( '- shuffle...' );
 			$Playlist->shuffle();
 		}
 
 		if ( $pl['limit'] && $pl['limit'] < $count ) {
 			$Playlist->reduce( $pl['limit'] );
-			$this->log( '- reduced to %s tracks (user limit)', $count = $Playlist->count() );
+			$this->info( '- reduced to %s tracks (user limit)', $count = $Playlist->count() );
 		}
 
-		$this->barNew( $count, 'bar_adding' );
+		$this->Factory->barNew( $count, 'bar_adding' );
 
 		// -------------------------------------------------------------------------------------------------------------
 		// Total size 2/2:
@@ -513,7 +429,7 @@ class Exporter
 			$last = $home . $sep . $item['name']; // {last_dir}/{track.mp3}
 			$item['map'] = $map ? $map . $sep . $last : $last;
 
-			$this->barInc( $item['name'] );
+			$this->Factory->barInc( $item['name'] );
 			$Playlist->itemUpdate( $itemId, $item['map'], 'map' );
 
 			// ---------------------------------------------------------------------------------------------------------
@@ -535,8 +451,8 @@ class Exporter
 			$bytes = $this->progress['bytes'] + $stat['size'];
 			if ( $total && $bytes > $total ) {
 				$Playlist->reduce( $done );
-				$this->barDel();
-				$this->log( '- reduced to %1$s tracks (total size limit: %2$s)',
+				$this->Factory->barDel();
+				$this->info( '- reduced to %1$s tracks (total size limit: %2$s)',
 					/*1*/ $done,
 					/*2*/ $this->Utils->byteString( $total ) );
 				break;
@@ -561,15 +477,15 @@ class Exporter
 			$done++;
 		}
 
-		$this->barDel();
+		$this->Factory->barDel();
 		$this->progress['asize'] = $this->progress['bytes'] / $this->progress['items'];
 
-		$this->log( '- total tracks: %1$s | total size: %2$s | ~%3$s per track',
+		$this->info( '- total tracks: %1$s | total size: %2$s | ~%3$s per track',
 			/*1*/ $this->progress['items'],
 			/*2*/ $this->Utils->byteString( $this->progress['bytes'] ),
 			/*3*/ $this->Utils->byteString( $this->progress['asize'] ) );
 
-		$this->Logger->debug( sprintf( 'Memory: %s', $this->Utils->byteString( memory_get_usage() ) ) );
+		$this->debug( $this->Utils->memory() );
 		return $Playlist;
 	}
 
@@ -727,13 +643,13 @@ class Exporter
 	 */
 	protected function manifestUnlink( string $type ): bool
 	{
-		$this->log( 'Export dir: "%s"', $dir = $this->Factory->get( "{$type}_dir" ) );
-		$this->log( 'Load manifest:' );
+		$this->info( 'Export dir: "%s"', $dir = $this->Factory->get( "{$type}_dir" ) );
+		$this->info( 'Load manifest:' );
 
 		if ( !is_file( $file = $dir . '/' . $this->Factory->get( 'manifest' ) ) ) {
-			$get = $this->Utils->prompt( 'Manifest file not found! Clear export dir? (y/N): ', false );
+			$get = $this->Utils->prompt( 'Manifest file not found! Clear export dir? y/[n]: ', false );
 			if ( 'Y' === strtoupper( $get ) ) {
-				$this->log( 'Clearing export dir...' );
+				$this->info( 'Clearing export dir...' );
 				$this->Utils->dirClear( $dir );
 			}
 			return false;
@@ -746,11 +662,11 @@ class Exporter
 		$new = &$this->manifest[$type];
 
 		$bytes = $items = $orphaned = $deleted = 0;
-		$this->barNew( count( $manifest ), 'bar_analyzing' );
+		$this->Factory->barNew( count( $manifest ), 'bar_analyzing' );
 
 		foreach ( $manifest as $id => $old ) {
 			$old['name'] = basename( $old['dst'] );
-			$this->barInc( $old['name'] );
+			$this->Factory->barInc( $old['name'] );
 
 			$size = 0;
 			$unlink = true;
@@ -760,7 +676,7 @@ class Exporter
 
 			// Shouldn't happen, but...
 			if ( $newDst && $newDst !== $old['dst'] ) {
-				$this->Logger->warning( sprintf( 'Manifest [Id:%1$s] mismatch! old [dst:"%2$s"] !== new [dst:"%3$s"]',
+				$this->warning( sprintf( 'Manifest [Id:%1$s] mismatch! old [dst:"%2$s"] !== new [dst:"%3$s"]',
 					/*1*/ $id,
 					/*2*/ $old['dst'],
 					/*3*/ $newDst ) );
@@ -773,7 +689,7 @@ class Exporter
 				$unlink |= $statSrc['size'] !== $statDst['size'];
 				$unlink |= $statSrc['mtime'] !== $statDst['mtime'];
 				$size = $statDst['size'];
-				$this->Logger->debug( sprintf( '%6$s [Id:%7$s] "%5$s" [size:%1$s/%2$s, mtime:%3$s/%4$s]',
+				$this->debug( sprintf( '%6$s [Id:%7$s] "%5$s" [size:%1$s/%2$s, mtime:%3$s/%4$s]',
 					/*1*/ $statSrc['size'],
 					/*2*/ $statDst['size'],
 					/*3*/ $statSrc['mtime'],
@@ -784,7 +700,7 @@ class Exporter
 			}
 			elseif ( $old['dst'] && !$newDst ) {
 				$orphaned++;
-				$this->Logger->debug( sprintf( 'Orphaned [Id:%2$s] "%1$s"',
+				$this->debug( sprintf( 'Orphaned [Id:%2$s] "%1$s"',
 					/*1*/ $oldDst,
 					/*2*/ $id ) );
 			}
@@ -800,15 +716,15 @@ class Exporter
 			}
 		}
 
-		$this->barDel();
+		$this->Factory->barDel();
 
 		// Summary:
-		$deleted && $this->log( 'Deleted %1$s previously exported files (%2$s orphaned)', $deleted, $orphaned );
+		$deleted && $this->info( 'Deleted %1$s previously exported files (%2$s orphaned)', $deleted, $orphaned );
 
 		if ( $items ) {
 			$this->progress['bytes'] -= $bytes;
 			$this->progress['items'] -= $items; // might be 0 items!
-			$this->log( 'Saved %1$s by not exporting %2$s matched files.',
+			$this->info( 'Saved %1$s by not exporting %2$s matched files.',
 				/*1*/ $this->Utils->byteString( $bytes ),
 				/*2*/ $items );
 		}
@@ -839,7 +755,7 @@ class Exporter
 
 		$this->Factory->cfg( $name, $total );
 		$this->Factory->cfg( $config, $total ? $this->Utils->byteString( $total ) : 'no limit' );
-		$this->log( '%s set: "%s"', $prompt, $this->Factory->get( $config ) );
+		$this->info( '%s set: "%s"', $prompt, $this->Factory->get( $config ) );
 	}
 
 	/**
@@ -847,7 +763,7 @@ class Exporter
 	 */
 	public function run(): void
 	{
-		$this->setTitle();
+		$this->Factory->cmdTitle();
 
 		// Config
 		$this->setBytes( 'total_size', 'Total' );
@@ -856,28 +772,21 @@ class Exporter
 
 		// Load tracks
 		$this->playlistsLoad();
-		$this->log();
+		$this->info();
 		$this->plsSummary();
 
 		// Generate playlists
-		$this->log();
+		$this->info();
 		$this->runOutput();
 
 		// Copy tracks
 		if ( $this->isExport ) {
-			$this->log();
+			$this->info();
 			$this->runExport();
 		}
 
-		$this->log( 'Done.' );
-	}
-
-	/**
-	 * Log messsage shorthand.
-	 */
-	public function log( string $s = '', ...$args )
-	{
-		$this->Logger->info( $s ? sprintf( $s, ...$args ) : str_repeat( '-', 80 ), 1 );
+		$this->Factory->cmdTitle();
+		$this->info( 'Done.' );
 	}
 
 	/**
@@ -887,8 +796,8 @@ class Exporter
 	 */
 	protected function plsSummary()
 	{
-		$this->log( 'Playlist [%s]', $this->PlaylistAll->pl['name'] );
-		$this->log( '- total tracks: %1$s (%5$s dupes) | total size: %2$s | ~%3$s per track',
+		$this->info( 'Playlist [%s]', $this->PlaylistAll->pl['name'] );
+		$this->info( '- total tracks: %1$s (%5$s dupes) | total size: %2$s | ~%3$s per track',
 			/*1*/ $this->progress['items'],
 			/*2*/ $this->Utils->byteString( $this->progress['bytes'] ),
 			/*3*/ $this->Utils->byteString( $this->progress['asize'] ),
@@ -905,18 +814,10 @@ class Exporter
 	protected function garbage( &$item ): void
 	{
 		if ( $this->Factory->get( 'garbage_collect' ) ) {
-			$this->Logger->debug( $this->memory(), 1 );
+			$this->debug( $this->Utils->memory(), 1 );
 			$item = null;
-			$this->Logger->debug( $this->memory(), 1 );
+			$this->debug( $this->Utils->memory(), 1 );
 		}
-	}
-
-	/**
-	 * Get PHP memory usage.
-	 */
-	protected function memory(): string
-	{
-		return 'Memory: ' . $this->Utils->byteString( memory_get_usage() );
 	}
 
 	/**
@@ -953,15 +854,13 @@ class Exporter
 		/* @formatter:off */
 		$header = sprintf(
 			'# %1$s' . "\n" .
-			'# Module: %2$s' . "\n" .
-			'# Playlist: %3$s | %4$s | %5$s tracks' . "\n" .
-			'# %6$s' . "\n\n",
-			/*1*/ $this->Factory->get( 'title_cli' ),
-			/*2*/ $this->Factory->get( 'module' ),
-			/*3*/ $Playlist->pl['name'],
-			/*4*/ basename( $file ),
-			/*5*/ $Playlist->count(),
-			/*6*/ date( 'r', time() ),
+			'# Playlist: %2$s | %3$s | %4$s tracks' . "\n" .
+			'# %5$s' . "\n\n",
+			/*1*/ $this->Factory->get( 'cmd_title' ),
+			/*2*/ $Playlist->pl['name'],
+			/*3*/ basename( $file ),
+			/*4*/ $Playlist->count(),
+			/*5*/ date( 'r', time() ),
 		);
 		/* @formatter:on */
 
@@ -970,7 +869,7 @@ class Exporter
 		file_put_contents( $file, $header . implode( "\n", $tracks ) . "\n" );
 
 		$this->manifestInsert( 'output', $file );
-		$this->log( 'Save [%s] "%s"', $Playlist->pl['name'], realpath( $file ) );
+		$this->info( 'Save [%s] "%s"', $Playlist->pl['name'], realpath( $file ) );
 	}
 
 	/**
@@ -982,11 +881,15 @@ class Exporter
 			return;
 		}
 
+		// Unlink invalid files and write new manifest ASAP,
+		// so we know what files to delete next time, even if export failed in half way.
 		$this->manifestUnlink( 'export' );
-		$this->log( 'Exporting %2$s tracks | %1$s',
+		$this->manifestWrite( 'export' );
+
+		$this->info( 'Exporting %2$s tracks | %1$s',
 			/*1*/ $this->Utils->byteString( $this->progress['bytes'] ),
 			/*2*/ $this->progress['items'] );
-		$this->barNew( $this->progress['items'], 'bar_exporting' );
+		$this->Factory->barNew( $this->progress['items'], 'bar_exporting' );
 
 		foreach ( $this->manifest['export'] as $new ) {
 			// Don't replace existing files left (matched) by manifestUnlink()
@@ -995,16 +898,16 @@ class Exporter
 			}
 
 			$new['name'] = basename( $new['dst'] );
-			$this->barInc( $new['name'] );
+			$this->Factory->barInc( $new['name'] );
 			$info = $this->progress();
 
 			/* @formatter:off */
-			$this->setTitle([
+			$this->Factory->cmdTitle([
 					'%cent_done%' => floor( $info['cent_done'] ),
 					'%time_left%' => $this->Utils->timeString( $info['time_left'], 0 ),
 					'%speed_bps%' => $this->Utils->byteString( $info['speed_bps'] ),
 				],
-				'[%cent_done%%] %time_left% left at %speed_bps%/s - %title_cli%',
+				'[%cent_done%%] %time_left% left at %speed_bps%/s - %cmd_title%',
 			);
 			/* @formatter:on */
 
@@ -1014,28 +917,6 @@ class Exporter
 			touch( $new['dst'], filemtime( $new['src'] ) );
 		}
 
-		$this->barDel();
-		$this->manifestWrite( 'export' );
-	}
-
-	/**
-	 * Update CMD window title.
-	 *
-	 * @param array  $tokens Array( [%token1%] => text1, [%token2%] => text2, ... )
-	 * @param string $format Eg. '%token1% - %token2% - %title%'
-	 */
-	protected function setTitle( array $tokens = [], string $format = '%title_cli%' ): void
-	{
-		$tokens['%title_cli%'] = $this->Factory->get( 'title_cli' );
-		cli_set_process_title( strtr( $format, $tokens ) );
-	}
-
-	/**
-	 * Slow down.
-	 */
-	protected function sleep( string $key ): void
-	{
-		$ms = (int) $this->Factory->get( $key );
-		$ms && usleep( $ms );
+		$this->Factory->barDel();
 	}
 }

@@ -24,6 +24,11 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class Factory extends \Orkan\Factory
 {
+	/**
+	 * @var ProgressBar
+	 */
+	protected $Bar;
+
 	/*
 	 * Services:
 	 */
@@ -52,6 +57,10 @@ class Factory extends \Orkan\Factory
 	protected function defaults()
 	{
 		/**
+		 * [cmd_title]
+		 * Default CMD window title
+		 * @see Factory::cmdTitle()
+		 *
 		 * [log_header]
 		 * Add extra header after Logger init
 		 *
@@ -62,7 +71,7 @@ class Factory extends \Orkan\Factory
 		 * Log to Console verbosity level
 		 * @see OutputInterface
 		 *
-		 * [bar_format]
+		 * [bar_default]
 		 * ProgressBar format
 		 * @see ProgressBar::initFormats()
 		 *
@@ -72,16 +81,43 @@ class Factory extends \Orkan\Factory
 		 * [bar_char_empty]
 		 * ProgressBar empty character
 		 *
+		 * [bar_usleep]
+		 * ProgressBar slow down
+		 *
 		 * @formatter:off */
 		return [
+			'cmd_title'             => 'CMD Factory',
 			'log_header'            => true,
 			'log_console'           => true,
 			'log_console_verbosity' => OutputInterface::VERBOSITY_VERBOSE,
-			'bar_format'            => '[%bar%] %current%/%max% %message%',
+			'bar_default'           => '[%bar%] %current%/%max% %message%',
+			'bar_loading'           => '- loading [%bar%] %current%/%max% %message%',
 			'bar_char'              => '|',
 			'bar_char_empty'        => '.',
+			'bar_usleep'            => getenv( 'APP_BAR_USLEEP' ) ?: 0,
 		];
 		/* @formatter:on */
+	}
+
+	/**
+	 * Update CMD window title.
+	 *
+	 * @param array  $tokens Array( [%token1%] => text1, [%token2%] => text2, ... )
+	 * @param string $format Eg. '%token1% - %token2% - %title%'
+	 */
+	public function cmdTitle( array $tokens = [], string $format = '%cmd_title%' ): void
+	{
+		$tokens['%cmd_title%'] = $this->get( 'cmd_title' );
+		cli_set_process_title( strtr( $format, $tokens ) );
+	}
+
+	/**
+	 * Slow down.
+	 */
+	public function sleep( string $key ): void
+	{
+		$ms = (int) $this->get( $key );
+		$ms && usleep( $ms );
 	}
 
 	/*
@@ -159,20 +195,87 @@ class Factory extends \Orkan\Factory
 	}
 
 	/**
-	 * @return ProgressBar
+	 * Callback Playlist->onLoad()
 	 */
-	public function ProgressBar( int $steps = 10, string $format = '' )
+	public function onPlaylistLoad( int $current, int $count, string $path, ?array $item )
 	{
-		$format = $format ?: 'bar_format';
+		if ( 1 == $current ) {
+			$this->barNew( $count, 'bar_loading' );
+		}
+
+		if ( $item ) {
+			$this->barInc( $item['name'] );
+		}
+
+		if ( $current == $count ) {
+			$this->barDel();
+		}
+	}
+
+	/**
+	 * Create progress bar.
+	 * @link https://symfony.com/doc/current/components/console/helpers/progressbar.html#bar-settings
+	 */
+	public function barNew( int $steps = 10, string $format = 'bar_default' ): void
+	{
+		if ( !$steps || defined( 'TESTING' ) ) {
+			return; // Don't display empty bar
+		}
+
 		ProgressBar::setFormatDefinition( $format, $this->get( $format ) );
 
-		$ProgressBar = new ProgressBar( $this->Output(), $steps );
-		$ProgressBar->setFormat( $format );
-		$ProgressBar->setBarCharacter( $this->get( 'bar_char' ) );
-		$ProgressBar->setProgressCharacter( $this->get( 'bar_char' ) );
-		$ProgressBar->setEmptyBarCharacter( $this->get( 'bar_char_empty' ) );
+		$this->Bar = new ProgressBar( $this->Output(), $steps );
+		$this->Bar->setFormat( $format );
+		$this->Bar->setBarCharacter( $this->get( 'bar_char' ) );
+		$this->Bar->setProgressCharacter( $this->get( 'bar_char' ) );
+		$this->Bar->setEmptyBarCharacter( $this->get( 'bar_char_empty' ) );
+		$this->Bar->setMessage( '' ); // Get rid of %message% string displayed in case there are 0 steps performed
+		$this->Bar->setRedrawFrequency( 1 ); // redraws the screen every each iteration
+		$this->Bar->start();
+		$this->sleep( 'bar_usleep' ); // give time to show step [1]
+	}
 
-		return $ProgressBar;
+	/**
+	 * Distroy progress bar.
+	 *
+	 * Make sure the ProgressBar properly displays final state.
+	 * Sometimes it doesn't render the last step if the redrawFreq is too low.
+	 *
+	 * @param bool $clear  Clear %message%
+	 * @param bool $finish Set Bar to 100%
+	 */
+	public function barDel( bool $clear = false, bool $finish = false ): void
+	{
+		if ( !$this->Bar ) {
+			return;
+		}
+
+		$clear && $this->Bar->setMessage( '' );
+		$finish && $this->Bar->finish();
+
+		// force refresh!
+		$this->Bar->display();
+
+		// New line after Progress Bar
+		$this->Output->writeln( '' );
+
+		$this->Bar = null;
+	}
+
+	/**
+	 * Increment progress bar.
+	 *
+	 * @param string $msg     Formatted %message%
+	 * @param int    $advance Increment by...
+	 */
+	public function barInc( string $msg = '', int $advance = 1 ): void
+	{
+		if ( !$this->Bar ) {
+			return;
+		}
+		$this->Bar->setMessage( $msg );
+		$this->Bar->advance( $advance );
+		$this->sleep( 'bar_usleep' );
 	}
 
 	/**

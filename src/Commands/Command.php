@@ -5,10 +5,10 @@
  */
 namespace Orkan\Winamp\Commands;
 
+use Orkan\Logging;
 use Orkan\Utils;
 use Orkan\Winamp\Factory;
 use Orkan\Winamp\Tools\Winamp;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
@@ -23,6 +23,8 @@ use Symfony\Component\Finder\Finder;
  */
 class Command extends \Symfony\Component\Console\Command\Command
 {
+	use Logging;
+
 	protected static $defaultName = 'common';
 	protected $input;
 	protected $output;
@@ -32,7 +34,6 @@ class Command extends \Symfony\Component\Console\Command\Command
 	 * @var \Symfony\Component\Console\Helper\ProgressBar
 	 */
 	protected $Bar;
-	protected $barUsleep;
 
 	/**
 	 * List of subdirs in [Media folder]
@@ -51,16 +52,11 @@ class Command extends \Symfony\Component\Console\Command\Command
 	// =========================================================================================================
 	// Part A: Methods to extend Command object
 	// =========================================================================================================
-
 	public function __construct( Factory $Factory )
 	{
 		$this->Factory = $Factory;
 		$this->Utils = $this->Factory->Utils();
 		$this->Logger = $this->Factory->Logger();
-
-		$this->barUsleep = getenv( 'APP_BAR_USLEEP' );
-		ProgressBar::setFormatDefinition( 'file_lines', '%current% / %max% (%percent:3s%%) %message%' );
-
 		parent::__construct();
 	}
 
@@ -131,7 +127,7 @@ class Command extends \Symfony\Component\Console\Command\Command
 
 		$pls = [];
 		$base = dirname( $file );
-		$this->Logger->info( sprintf( 'Load "%s"', $file ) );
+		$this->info( 'Load "%s"', $file );
 
 		foreach ( Winamp::loadPlaylists( $file ) as $val ) {
 
@@ -139,55 +135,11 @@ class Command extends \Symfony\Component\Console\Command\Command
 				$pls[$val['title']] = $loc;
 			}
 			else {
-				$this->Logger->warning( sprintf( 'Failed to locate "%s"', $val['filename'] ) );
+				$this->warning( 'Failed to locate "%s"', $val['filename'] );
 			}
 		}
 
-		$this->Logger->info( sprintf( 'Found %d playlists', count( $pls ) ) );
+		$this->info( '- playlists: %d', count( $pls ) );
 		return $pls;
-	}
-
-	/**
-	 * Create progress bar
-	 * @link https://symfony.com/doc/current/components/console/helpers/progressbar.html#bar-settings
-	 */
-	protected function newProgressBar( string $format, int $steps )
-	{
-		$this->Bar = new ProgressBar( $this->output, $steps );
-		$this->Bar->setFormat( $format );
-		$this->Bar->setRedrawFrequency( 1 ); // redraws the screen every each iteration
-		$this->Bar->setMessage( '' ); // Get rif of %message% string displayed in case there are 0 steps performed
-		$this->Bar->start();
-	}
-
-	protected function incProgressBar( string $msg = '', int $step = 1 )
-	{
-		$this->Bar->setMessage( $msg );
-		$this->Bar->advance( $step );
-
-		$this->barUsleep && usleep( $this->barUsleep ); // slow down
-	}
-
-	/**
-	 * Distroy progress bar
-	 *
-	 * @param bool $clear  Clear %message%
-	 * @param bool $finish Set Bar to 100%
-	 */
-	protected function delProgressBar( bool $clear = false, bool $finish = false )
-	{
-		if ( !isset( $this->Bar ) ) {
-			return;
-		}
-
-		$clear && $this->Bar->setMessage( '' );
-		$finish && $this->Bar->finish();
-
-		// Make sure the ProgressBar properly displays final state.
-		// Sometimes it doesnt render the last step if the redrawFreq is too low
-		$this->Bar->display(); // force refresh!
-
-		unset( $this->Bar );
-		$this->output->writeln( '' ); // New line after Progress Bar!
 	}
 }

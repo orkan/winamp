@@ -213,6 +213,39 @@ class PlaylistFix03Test extends TestCase
 	}
 
 	/**
+	 * [pl02.m3u]: Sort playlist.
+	 */
+	public function testCanSortPlaylist()
+	{
+		/* @formatter:off */
+		$data = [
+			'files' => [
+				'infile' => self::$dir['ml'] . '/pl02.m3u', // Artist01-One.mp3, Artist02-Two.mp3
+			],
+		];
+		$expect = $lines = [
+			'aaa',
+			'ccc',
+			'bbb',
+		];
+		/* @formatter:on */
+
+		self::parseFiles( $data );
+
+		$Playlist = new Playlist( self::$Factory );
+		$Playlist->insert( $lines );
+
+		$Playlist->sort(); // Def. sort by [name] ASC
+		sort( $expect ); // Def. ASC
+		$actual = array_values( $Playlist->paths( 'name' ) );
+		$this->assertSame( $expect, $actual );
+
+		$this->assertTrue( $Playlist->sort( 'orig', false ), 'Sort DESC' ); // changed
+		$this->assertTrue( $Playlist->sort( 'orig', true ), 'Sort ASC' ); // changed
+		$this->assertFalse( $Playlist->sort( 'orig', true ), 'Sort ASC - second run' ); // NOT changed!
+	}
+
+	/**
 	 * [pl01.m3u]: Reduce playlist.
 	 */
 	public function testCanReducePlaylist()

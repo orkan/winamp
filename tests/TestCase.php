@@ -6,7 +6,7 @@
 namespace Orkan\Winamp\Tests;
 
 use Orkan\Utils;
-use PHPUnit\Framework\TestCase as BaseTestCase;
+use Orkan\Winamp\Factory;
 use Symfony\Component\Finder\Finder;
 
 /**
@@ -14,7 +14,7 @@ use Symfony\Component\Finder\Finder;
  *
  * @author Orkan <orkans+winamp@gmail.com>
  */
-class TestCase extends BaseTestCase
+class TestCase extends \PHPUnit\Framework\TestCase
 {
 	/**
 	 * The Command under test
@@ -66,7 +66,7 @@ class TestCase extends BaseTestCase
 			'ml'       => self::$testsDir . '/_sandbox/ml',
 			'media'    => self::$testsDir . '/_sandbox/media',
 		];
-		self::$Factory = new FactoryMock([
+		self::$Factory = new Factory([
 			'log_level'        => 'DEBUG',
 			'log_debug'        => true,
 			'log_file'         => sprintf( '%s/_log/%s.log', __DIR__, basename( static::class ) ),

@@ -57,7 +57,7 @@ EOT );
 				break;
 
 			case 'logfile':
-				$this->Logger->notice( $this->Logger->getFilename() );
+				$this->Logger->notice( $this->Utils->pathFix( $this->Logger->getFilename() ) );
 				break;
 		}
 
