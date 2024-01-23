@@ -234,7 +234,7 @@ class Exporter
 		while ( !$dir );
 
 		$this->Factory->cfg( $cfg, $dir );
-		$this->info( '%s set: "%s"', $msg, $dir );
+		$this->notice( '%s set: "%s"', $msg, $dir );
 	}
 
 	/**
@@ -370,7 +370,7 @@ class Exporter
 		$sep = $this->Factory->get( 'export_sep' );
 
 		$this->info();
-		$this->info( 'Playlist [%s] "%s"', $pl['name'], $m3u );
+		$this->notice( 'Playlist [%s] "%s"', $pl['name'], $m3u );
 		$this->debug( $this->Utils->memory() );
 
 		if ( !is_file( $m3u ) ) {
@@ -480,7 +480,7 @@ class Exporter
 		$this->Factory->barDel();
 		$this->progress['asize'] = $this->progress['bytes'] / $this->progress['items'];
 
-		$this->info( '- total tracks: %1$s | total size: %2$s | ~%3$s per track',
+		$this->notice( 'Total tracks: %1$s | total size: %2$s | ~%3$s per track',
 			/*1*/ $this->progress['items'],
 			/*2*/ $this->Utils->byteString( $this->progress['bytes'] ),
 			/*3*/ $this->Utils->byteString( $this->progress['asize'] ) );
@@ -643,13 +643,13 @@ class Exporter
 	 */
 	protected function manifestUnlink( string $type ): bool
 	{
-		$this->info( 'Export dir: "%s"', $dir = $this->Factory->get( "{$type}_dir" ) );
-		$this->info( 'Load manifest:' );
+		$this->notice( 'Export dir: "%s"', $dir = $this->Factory->get( "{$type}_dir" ) );
+		$this->notice( 'Load manifest:' );
 
 		if ( !is_file( $file = $dir . '/' . $this->Factory->get( 'manifest' ) ) ) {
 			$get = $this->Utils->prompt( 'Manifest file not found! Clear export dir? y/[n]: ', false );
 			if ( 'Y' === strtoupper( $get ) ) {
-				$this->info( 'Clearing export dir...' );
+				$this->info( '- clearing export dir...' );
 				$this->Utils->dirClear( $dir );
 			}
 			return false;
@@ -719,12 +719,12 @@ class Exporter
 		$this->Factory->barDel();
 
 		// Summary:
-		$deleted && $this->info( 'Deleted %1$s previously exported files (%2$s orphaned)', $deleted, $orphaned );
+		$deleted && $this->info( '- deleted %1$s previously exported files (%2$s orphaned)', $deleted, $orphaned );
 
 		if ( $items ) {
 			$this->progress['bytes'] -= $bytes;
 			$this->progress['items'] -= $items; // might be 0 items!
-			$this->info( 'Saved %1$s by not exporting %2$s matched files.',
+			$this->info( '- saved %1$s by not exporting %2$s matched files.',
 				/*1*/ $this->Utils->byteString( $bytes ),
 				/*2*/ $items );
 		}
@@ -755,7 +755,7 @@ class Exporter
 
 		$this->Factory->cfg( $name, $total );
 		$this->Factory->cfg( $config, $total ? $this->Utils->byteString( $total ) : 'no limit' );
-		$this->info( '%s set: "%s"', $prompt, $this->Factory->get( $config ) );
+		$this->notice( '%s set: "%s"', $prompt, $this->Factory->get( $config ) );
 	}
 
 	/**
@@ -786,7 +786,7 @@ class Exporter
 		}
 
 		$this->Factory->cmdTitle();
-		$this->info( 'Done.' );
+		$this->notice( 'Done.' );
 	}
 
 	/**
@@ -796,8 +796,8 @@ class Exporter
 	 */
 	protected function plsSummary()
 	{
-		$this->info( 'Playlist [%s]', $this->PlaylistAll->pl['name'] );
-		$this->info( '- total tracks: %1$s (%5$s dupes) | total size: %2$s | ~%3$s per track',
+		$this->notice( 'Playlist [%s] - all tracks summary', $this->PlaylistAll->pl['name'] );
+		$this->notice( 'Total tracks: %1$s (%5$s dupes) | total size: %2$s | ~%3$s per track',
 			/*1*/ $this->progress['items'],
 			/*2*/ $this->Utils->byteString( $this->progress['bytes'] ),
 			/*3*/ $this->Utils->byteString( $this->progress['asize'] ),
@@ -869,7 +869,7 @@ class Exporter
 		file_put_contents( $file, $header . implode( "\n", $tracks ) . "\n" );
 
 		$this->manifestInsert( 'output', $file );
-		$this->info( 'Save [%s] "%s"', $Playlist->pl['name'], realpath( $file ) );
+		$this->notice( 'Save [%s] "%s"', $Playlist->pl['name'], realpath( $file ) );
 	}
 
 	/**
@@ -886,7 +886,7 @@ class Exporter
 		$this->manifestUnlink( 'export' );
 		$this->manifestWrite( 'export' );
 
-		$this->info( 'Exporting %2$s tracks | %1$s',
+		$this->notice( 'Export %2$s tracks | %1$s',
 			/*1*/ $this->Utils->byteString( $this->progress['bytes'] ),
 			/*2*/ $this->progress['items'] );
 		$this->Factory->barNew( $this->progress['items'], 'bar_exporting' );
