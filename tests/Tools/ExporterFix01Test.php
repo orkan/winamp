@@ -21,7 +21,14 @@ class ExporterFix01Test extends TestCase
 	{
 		parent::setUpBeforeClass();
 
-		// Save default config before any test might change it
+		/* @formatter:off */
+		self::$Factory->merge([
+			'winamp_dir' => self::$dir['ml'],
+			'winamp_xml' => 'playlists-1.xml', // can't use default playlists.xml in Fix01!
+		], true );
+		/* @formatter:on */
+
+		// Save default config before any test might change it!
 		self::$cfg = self::$Factory->cfg();
 	}
 
@@ -38,7 +45,7 @@ class ExporterFix01Test extends TestCase
 	// ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	/**
-	 * [playlists02.xml]: Convert cfg[extra] titles to playlists array.
+	 * [playlists-2.xml]: Convert cfg[extra] titles to playlists array.
 	 */
 	public function testCanLoadExtraPlaylists()
 	{
@@ -50,7 +57,7 @@ class ExporterFix01Test extends TestCase
 			],
 		];
 		$cfg = [
-			'winamp_xml' => 'playlists02.xml',
+			'winamp_xml' => 'playlists-2.xml',
 			'extra' => [
 				'Pl 02',
 				'Pl 01',
@@ -78,7 +85,7 @@ class ExporterFix01Test extends TestCase
 	}
 
 	/**
-	 * [playlists.xml]: Import cfg[playlists] to Playlist[].
+	 * [playlists-1.xml]: Import cfg[playlists] to Playlist[].
 	 */
 	public function testCanBuildCfgPlaylists()
 	{
@@ -111,7 +118,7 @@ class ExporterFix01Test extends TestCase
 	}
 
 	/**
-	 * [playlists.xml]: Use total limit.
+	 * [playlists-1.xml]: Use total limit.
 	 */
 	public function testCanUseTotalLimit()
 	{
@@ -150,7 +157,7 @@ class ExporterFix01Test extends TestCase
 	}
 
 	/**
-	 * [playlists.xml]: Use playlist limit.
+	 * [playlists-1.xml]: Use playlist limit.
 	 */
 	public function testCanUsePlaylistLimit()
 	{
@@ -182,7 +189,7 @@ class ExporterFix01Test extends TestCase
 	}
 
 	/**
-	 * [playlists.xml]: Mark all dupes.
+	 * [playlists-1.xml]: Mark all dupes.
 	 */
 	public function testCanMarkDupes()
 	{
@@ -218,7 +225,7 @@ class ExporterFix01Test extends TestCase
 	}
 
 	/**
-	 * [playlists.xml]: Skip exporting same files.
+	 * [playlists-1.xml]: Skip exporting same files.
 	 */
 	public function testCanManifestSkipFiles()
 	{
@@ -318,7 +325,7 @@ class ExporterFix01Test extends TestCase
 			],
 		];
 		$cfg = [
-			'winamp_xml' => 'playlists02.xml',
+			'winamp_xml' => 'playlists-2.xml',
 			'extra' => [
 				'Pl 01',
 				'Pl 02',

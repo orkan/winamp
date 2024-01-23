@@ -14,8 +14,8 @@ use Symfony\Component\Console\Input\InputOption;
 class Application extends \Symfony\Component\Console\Application
 {
 	const APP_NAME = 'Winamp Media Library CLI tools by Orkan';
-	const APP_VERSION = 'v5.1.0';
-	const RELEASE_DATE = 'Tue, 23 Jan 2024 12:36:26 +01:00';
+	const APP_VERSION = '5.2.0';
+	const RELEASE_DATE = 'Tue, 23 Jan 2024 14:25:48 +01:00';
 
 	/**
 	 * @link https://patorjk.com/software/taag/#p=display&v=0&f=Graffiti&t=Winamp
@@ -105,6 +105,6 @@ class Application extends \Symfony\Component\Console\Application
 	 */
 	public function getLongVersion()
 	{
-		return sprintf( '%s (%s)', parent::getLongVersion(), self::RELEASE_DATE );
+		return sprintf( '%s v%s (%s)', parent::getName(), parent::getVersion(), self::RELEASE_DATE );
 	}
 }

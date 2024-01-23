@@ -73,12 +73,16 @@ class TestCase extends \PHPUnit\Framework\TestCase
 			'log_keep'         => 1,
 			'log_reset'        => true,
 			'log_console'      => false, // turn off logs in console
-			'winamp_playlists' => self::$dir['ml'] . '/playlists.xml',
-			'winamp_dir'       => self::$dir['ml'],
-			'winamp_xml'       => 'playlists.xml',
+			'winamp_playlists' => '', // Reset! See Application::defaults(): $ENV[APPDATA]\winamp\Plugins\ml\playlists.xml
 		]);
 		/* @formatter:on */
 
+		/*
+		 * WARNING:
+		 * Do NOT delete any of the original fixture files between tests!
+		 * Fixture files are copied here only once for all the following tests in current case.
+		 * It's because of noticable lag when doing it between tests - in setUp() method.
+		 */
 		self::clearDirectory( self::$dir['sandbox'] );
 		self::dirCopy( self::$dir['fixture'], self::$dir['sandbox'] );
 

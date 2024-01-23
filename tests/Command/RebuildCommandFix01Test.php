@@ -349,13 +349,13 @@ class RebuildCommandFix01Test extends TestCase
 	}
 
 	/**
-	 * [playlists_.m3u8]: playlist.xml
+	 * [playlists_XX.m3u8]: In playlists-1.xml
 	 */
 	public function testCanReadXmlPlaylists()
 	{
 		/* @formatter:off */
 		$data = [
-			'files' => [ // In playlists.xml:
+			'files' => [ // In playlists-1.xml:
 				'Pl 1' => self::$dir['ml'] . '/playlists_01.m3u8',
 				'Pl 2' => self::$dir['ml'] . '/playlists_02.m3u8',
 				'Pl 3' => self::$dir['ml'] . '/playlists_03.m3u8',
@@ -365,14 +365,12 @@ class RebuildCommandFix01Test extends TestCase
 		self::parseFiles( $data );
 
 		self::$CommandTester->execute( [
-			'--infile'     => self::$dir['ml'] . '/playlists.xml',
+			'--infile'     => self::$dir['ml'] . '/playlists-1.xml',
 			'--format'     => 'm3u', // Force save as *.m3u
 			'--no-ext'     => true,
 			'media-folder' => self::$dir['media'],
 		] );
 		/* @formatter:on */
-
-		$this->assertFileExists( self::$dir['ml'] . '/playlists.xml' );
 
 		foreach ( $data['files'] as $file ) {
 			$this->assertFileExists( Utils::fileNoExt( $file ) . '.m3u' );
@@ -607,8 +605,6 @@ class RebuildCommandFix01Test extends TestCase
 	public function testExceptionThrownIfInputFileNotFound()
 	{
 		// Factory->cfg( 'winamp_playlists' ) is the default playlist if no --infile is given
-		unlink( self::$Factory->cfg( 'winamp_playlists' ) );
-
 		$this->expectException( Exception::class );
 		self::$CommandTester->execute( [ 'media-folder' => self::$dir['media'] ] );
 	}
