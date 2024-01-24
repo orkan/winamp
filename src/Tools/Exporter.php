@@ -6,6 +6,7 @@
 namespace Orkan\Winamp\Tools;
 
 use Orkan\Logging;
+use Orkan\Winamp\Application;
 use Orkan\Winamp\Factory;
 
 /**
@@ -854,13 +855,17 @@ class Exporter
 		/* @formatter:off */
 		$header = sprintf(
 			'# %1$s' . "\n" .
+			'# %6$s v%7$s' . "\n" .
+			'# %5$s' . "\n" .
 			'# Playlist: %2$s | %3$s | %4$s tracks' . "\n" .
-			'# %5$s' . "\n\n",
+			"\n",
 			/*1*/ $this->Factory->get( 'cmd_title' ),
 			/*2*/ $Playlist->pl['name'],
 			/*3*/ basename( $file ),
 			/*4*/ $Playlist->count(),
 			/*5*/ date( 'r', time() ),
+			/*6*/ Application::APP_NAME,
+			/*7*/ Application::APP_VERSION,
 		);
 		/* @formatter:on */
 

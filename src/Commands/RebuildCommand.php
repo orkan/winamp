@@ -187,7 +187,7 @@ EOT );
 
 		if ( !is_file( $inputFile ) ) {
 			throw new \InvalidArgumentException( sprintf( "Playlist file not found. Was trying:\n%s",
-				/**/ $this->Utils->arrayImplode( $locations, ",\n" ) ) );
+			/**/ $this->Utils->arrayImplode( $locations, ",\n" ) ) );
 		}
 
 		if ( !is_dir( $mediaDir = $this->Utils->pathToAbs( $input->getArgument( 'media-folder' ), getcwd() ) ) ) {
@@ -228,7 +228,9 @@ EOT );
 
 			$playlistCount = $Playlist->count();
 			$playlistCountSkip = 0;
-			$this->info( '- tracks: %d ', $playlistCount = $Playlist->count() );
+			$this->debug( $this->Utils->memory() );
+			$this->info( '- tracks: %d ', $playlistCount );
+			$this->info( '- analyzing...' );
 
 			// =========================================================================================================
 			// Each mp3
