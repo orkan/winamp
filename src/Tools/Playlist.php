@@ -247,7 +247,7 @@ class Playlist
 	 */
 	public function insert( $lines, bool $abs = false ): array
 	{
-		$ids = [];
+		$ids = $dupes = [];
 
 		foreach ( (array) $lines as $line ) {
 
@@ -256,8 +256,12 @@ class Playlist
 			}
 
 			$id = $this->id( $line );
-			$ids[$id] = $line;
+			if ( isset( $this->main[$id] ) ) {
+				$dupes[$line][] = $id;
+				continue;
+			}
 
+			$ids[$id] = $line;
 			$path = $abs ? realpath( $line ) : $line;
 			!$path && $this->stats['missing'][] = $line;
 
@@ -271,6 +275,8 @@ class Playlist
 
 			$this->isDirty = true;
 		}
+
+		$this->statsDupes( $dupes );
 
 		return $ids;
 	}
@@ -324,7 +330,7 @@ class Playlist
 	public function duplicates( bool $remove = false ): void
 	{
 		$this->load();
-		$unique = $dupes = $duped = [];
+		$unique = $dupes = [];
 
 		foreach ( $this->main as $id => $item ) {
 
@@ -341,17 +347,29 @@ class Playlist
 
 			// Duplicated!
 			$dupes[$path][] = $id;
-			$duped[] = $path;
 		}
 
 		if ( $remove ) {
 			foreach ( $dupes as $ids ) {
-				$this->remove( $ids, 'dupes' );
+				$this->remove( $ids );
 			}
 		}
 
-		$this->stats['duped'] = $duped;
-		$this->stats['dupes'] = $dupes;
+		$this->statsDupes( $dupes );
+	}
+
+	/**
+	 * Add more dupes to stats.
+	 * @see Playlist::$stats
+	 */
+	protected function statsDupes( array $dupes )
+	{
+		if ( $dupes ) {
+			$this->stats['duped'] = array_merge( $this->stats['duped'], array_keys( $dupes ) );
+			foreach ( $dupes as $path => $ids ) {
+				$this->stats['dupes'][$path] = array_merge( $this->stats['dupes'][$path] ?? [], $ids );
+			}
+		}
 	}
 
 	/**
@@ -434,7 +452,8 @@ class Playlist
 			$item = null;
 			if ( $line[0] !== '#' ) {
 				$ids = $this->insert( $line, true );
-				$item = $this->main[key( $ids )];
+				$id = key( $ids );
+				$id && $item = $this->main[$id];
 			}
 
 			// Callback (current, count, line, ?item)

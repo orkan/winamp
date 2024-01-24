@@ -87,7 +87,7 @@ class Factory extends \Orkan\Factory
 		 * @formatter:off */
 		return [
 			'cmd_title'             => 'CMD Factory',
-			'app_version'           => '5.2.1',
+			'app_version'           => '5.3.0',
 			'log_header'            => true,
 			'log_console'           => true,
 			'log_console_verbosity' => OutputInterface::VERBOSITY_VERBOSE,

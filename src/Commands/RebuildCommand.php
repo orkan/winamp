@@ -230,22 +230,14 @@ EOT );
 			$playlistCountSkip = 0;
 			$this->info( '- tracks: %d ', $playlistCount = $Playlist->count() );
 
-			// ---------------------------------------------------------------------------------------------------------
-			// PRE Duplicates
-			if ( $input->getOption( 'dupes' ) ) {
-				$Playlist->duplicates( true );
-				$this->logDupes( 'PRE check', $Playlist->stats() );
-			}
-
 			// =========================================================================================================
-			// Each mp3 (without dupes!)
+			// Each mp3
 			// =========================================================================================================
-			foreach ( $Playlist->items() as $key => $item ) {
-
+			foreach ( $Playlist->items() as $id => $item ) {
 				/*
 				 * Try to find propper path to media file with different methods...
-				 * Note, we cannot join multiple methods here, like: Relocate + Rename
-				 * A workaround would be to create master method that would join both procedures
+				 * We cannot join multiple methods here, like: Relocate + Rename.
+				 * A workaround would be to create master method that will join both procedures.
 				 *
 				 * @formatter:off */
 				$itemPath =
@@ -259,28 +251,24 @@ EOT );
 
 				if ( 'Skip' == $itemPath ) {
 					$this->notice( '- skip "%s"', $item['orig'] );
-					$Playlist->itemUpdate( $key, $item['orig'] ); // replace missing realpath with original entry
+					$Playlist->itemUpdate( $id, $item['orig'] ); // replace missing realpath with original entry
 					$playlistCountSkip++;
 					continue;
 				}
 				if ( 'Remove' == $itemPath ) {
 					$this->notice( '- remove "%s"', $item['orig'] );
-					$Playlist->remove( $key );
+					$Playlist->remove( $id );
 					continue;
 				}
 				if ( 'Exit' == $itemPath ) {
-					$this->Logger->warning( 'User Exit' );
+					$this->warning( 'User Exit' );
 					return Command::FAILURE;
 				}
 
 				if ( !is_file( $itemPath ) ) {
-					/* @formatter:off */
-					throw new \UnexpectedValueException( sprintf(
-						'Computed path "%s" is invalid for playlist entry "%s"',
-						$itemPath,
-						$item['orig']
-					));
-					/* @formatter:on */
+					throw new \UnexpectedValueException( sprintf( 'Computed path "%s" is invalid for playlist entry "%s"',
+						/**/ $itemPath,
+						/**/ $item['orig'] ) );
 				}
 
 				// -----------------------------------------------------------------------------------------------------
@@ -290,7 +278,7 @@ EOT );
 					$this->notice( '- update:' );
 					$this->notice( '  <-- "%s"', $item['orig'] );
 					$this->notice( '  --> "%s"', $itemPath );
-					$Playlist->itemUpdate( $key, $itemPath );
+					$Playlist->itemUpdate( $id, $itemPath );
 				}
 
 				// =====================================================================================================
@@ -302,17 +290,15 @@ EOT );
 			count( $this->regMap ) && $this->debug( 'Rename MAP: ' . $this->Utils->print_r( $this->regMap ) );
 
 			// ---------------------------------------------------------------------------------------------------------
-			// POST Duplicates
-			// Some paths might be resolved to same location!
-			if ( $input->getOption( 'dupes' ) && $Playlist->stats( 'moved' ) ) {
+			// Duplicates: updated paths may resolve to same location!
+			if ( $input->getOption( 'dupes' ) ) {
 				$Playlist->duplicates( true );
-				$this->logDupes( 'POST check', $Playlist->stats() );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
 			// Sort
 			if ( $input->getOption( 'sort' ) ) {
-				$this->info( $Playlist->sort() ? '- sort (order changed)' : '- sort (no change)' );
+				$this->info( '- sort: %s', $Playlist->sort() ? 'changed' : 'not changed' );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
@@ -340,7 +326,14 @@ EOT );
 			if ( $stats['removed'] ) {
 				$this->info( '- removed (%d):', $stats['removedCount'] );
 				foreach ( $stats['removed'] as $val ) {
-					$this->info( '  --- %s', $val );
+					$this->info( '  <-- "%s"', $val );
+				}
+			}
+
+			if ( $stats['duped'] ) {
+				$this->info( '- duplicates (%s):', count( $stats['duped'] ) );
+				foreach ( $stats['dupes'] as $path => $ids ) {
+					$this->info( '  x%d - %s', count( $ids ), $path );
 				}
 			}
 
@@ -419,17 +412,6 @@ EOT );
 		}
 
 		return Command::SUCCESS;
-	}
-
-	/**
-	 * A shorthand for double dupes check
-	 */
-	protected function logDupes( string $label, array $stats )
-	{
-		$this->info( '- duplicates (%s): %s', $label, count( $stats['duped'] ) );
-		foreach ( $stats['dupes'] as $path => $ids ) {
-			$this->info( '  x%d - %s', count( $ids ), $path );
-		}
 	}
 
 	/**

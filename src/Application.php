@@ -14,8 +14,8 @@ use Symfony\Component\Console\Input\InputOption;
 class Application extends \Symfony\Component\Console\Application
 {
 	const APP_NAME = 'Winamp Media Library CLI tools by Orkan';
-	const APP_VERSION = '5.2.1';
-	const RELEASE_DATE = 'Tue, 23 Jan 2024 15:37:39 +01:00';
+	const APP_VERSION = '5.3.0';
+	const RELEASE_DATE = 'Wed, 24 Jan 2024 02:15:37 +01:00';
 
 	/**
 	 * @link https://patorjk.com/software/taag/#p=display&v=0&f=Graffiti&t=Winamp
