@@ -25,7 +25,7 @@
 		"symfony/monolog-bridge": "^5.2",
 		"james-heinrich/getid3": "^1.9",
 		"symfony/finder": "^5.2",
-		"orkan/utils": "^5.0"
+		"orkan/utils": "^7.0"
 	},
 	"require-dev": {
 		"phpunit/phpunit": "^9.5",
@@ -46,7 +46,7 @@
 	],
 	"extra": {
 		"branch-alias": {
-			"dev-master": "5.3.x-dev",
+			"dev-master": "5.4.x-dev",
 			"dev-develop": "5.x-dev"
 		}
 	}

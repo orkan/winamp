@@ -1,22 +1,34 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2023 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Tools;
 
-use Orkan\Logging;
 use Orkan\Winamp\Application;
 use Orkan\Winamp\Factory;
 
 /**
- * Help export Winamp ML.
+ * Export Winamp ML.
  *
  * @author Orkan <orkans+winamp@gmail.com>
  */
-class Exporter
+class Exporter extends \Orkan\Application
 {
-	use Logging;
+	const APP_NAME = 'Winamp Export Media Library';
+	const APP_VERSION = '5.4.0';
+	const APP_DATE = 'Mon, 25 Mar 2024 16:42:00 +01:00';
+
+	/**
+	 * @link https://patorjk.com/software/taag/#p=display&v=0&f=Ivrit&t=CLI%20App
+	 * @link Utils\usr\php\logo\logo.php
+	 */
+	const LOGO = ' __      __.__                                       ___________                             __
+/  \\    /  \\__| ____ _____    _____ ______           \\_   _____/__  _________   ____________/  |_
+\\   \\/\\/   /  |/    \\\\__  \\  /     \\\\____ \\   ______  |    __)_\\  \\/  /\\____ \\ /  _ \\_  __ \\   __\\
+ \\        /|  |   |  \\/ __ \\|  Y Y  \\  |_> > /_____/  |        \\>    < |  |_> >  <_> )  | \\/|  |
+  \\__/\\  / |__|___|  (____  /__|_|  /   __/          /_______  /__/\\_ \\|   __/ \\____/|__|   |__|
+       \\/          \\/     \\/      \\/|__|                     \\/      \\/|__|';
 
 	/**
 	 * Copy tracks to cfg[export_dir]?
@@ -86,39 +98,36 @@ class Exporter
 
 	/* @formatter:on */
 
-	/*
-	 * Services:
-	 */
-	protected $Factory;
-	protected $Utils;
-
 	/**
 	 * Setup.
 	 */
 	public function __construct( Factory $Factory )
 	{
-		$this->Factory = $Factory->merge( $this->defaults() );
-		$this->Utils = $this->Factory->Utils();
-		$this->Output = $this->Factory->Output();
+		$this->Factory = $Factory->merge( self::defaults() );
+		parent::__construct( $Factory );
 
-		$this->isExport = (bool) $this->Factory->get( 'export_dir' );
-
-		$this->PlaylistAll = $this->Factory->Playlist(); // dont link with file yet!
-		$this->PlaylistAll->pl = $this->plNormalize( [ 'name' => $this->Factory->get( 'playlist_all' ) ] );
-
-		if ( !is_dir( $dir = $this->Factory->get( 'winamp_dir' ) ) ) {
-			throw new \InvalidArgumentException( sprintf( 'Winamp ML dir "%s" not found at "%s". Check cfg[winamp_dir]',
-				/**/ $dir,
-				/**/ getcwd() ) );
-		}
+		/**
+		 * Load separate user config via [-- arg].
+		 *
+		 * CAUTION:
+		 * Winamp\Factory is loading config via [-u arg] but Winamp\Exporter doesn't define -u switch,
+		 * @see \Orkan\Application::ARGUMENTS
+		 * leading PHP::getopt() to stop parsing args when an unknown switch is found...
+		 * @see \Orkan\Application::getArg()
+		 */
+		$this->loadUserConfig();
 	}
 
 	/**
 	 * Get defaults.
 	 */
-	protected function defaults()
+	protected function defaults(): array
 	{
 		/**
+		 * [cmd_title]
+		 * CMD window title
+		 * @see \Orkan\Application::cmdTitle()
+		 *
 		 * [winamp_xml]
 		 * Winamp playlists XML file name (def. playlists.xml)
 		 *
@@ -177,7 +186,9 @@ class Exporter
 		 *
 		 * @formatter:off */
 		return [
-			'cmd_title'       => 'Export Winamp ML',
+			'cmd_title'       => 'Winamp Export',
+			'app_usage'       => 'export.php [OPTIONS] [--] [config.php]',
+			'log_reset'       => true,
 			'winamp_xml'      => 'playlists.xml',
 			'manifest'        => 'export.json',
 			'playlist_all'    => 'Export',
@@ -208,16 +219,15 @@ class Exporter
 	 */
 	protected function dirPrepare( string $type, string $name ): void
 	{
-		$cfg = "{$type}_dir";
+		$key = "{$type}_dir";
 		$msg = "{$name} output";
-		$dir = $this->Factory->get( $cfg );
 		$loop = 0;
 
 		do {
-			$dir = $this->importPath( $dir, "{$msg} dir" );
+			$dir = $this->importPath( $key, "{$msg} dir" );
 
 			if ( !is_dir( $dir ) ) {
-				// Auto create path?
+				// Path must exists
 				if ( !$this->Factory->get( 'auto_dirs' ) ) {
 					echo "Error: $msg dir not found!\n";
 					if ( !$loop ) {
@@ -227,28 +237,36 @@ class Exporter
 				}
 				// Create full directory path if not exist
 				elseif ( !$this->Utils->dirClear( $dir ) ) {
-					throw new \RuntimeException( sprintf( 'Error creating cfg[%s] path: "%s"', $cfg, $dir ) );
+					throw new \RuntimeException( sprintf( 'Error creating cfg[%s] path: "%s"', $key, $dir ) );
 				}
 			}
 			$loop++;
 		}
 		while ( !$dir );
 
-		$this->Factory->cfg( $cfg, $dir );
-		$this->notice( '%s set: "%s"', $msg, $dir );
+		$this->Factory->cfg( $key, $dir );
+		$this->Factory->notice( '{name} set: "{path}"', [ '{name}' => $msg, '{path}' => $dir ] );
 	}
 
 	/**
 	 * Help: Import path string.
 	 *
-	 * @param string $path Initial path. Prefix with '?' for user prompt
+	 * @param string $key    Config[key] holding initial path
 	 * @param string $prompt Prompt message
 	 * @return int Fixed path string
 	 */
-	protected function importPath( string $path, string $prompt = 'Import' ): string
+	protected function importPath( string $key, string $prompt = 'Import' ): string
 	{
+		// Initial path. Prefix with '?' for user prompt
+		$path = $this->Factory->get( $key );
+
 		if ( empty( $path ) || '?' === $path[0] ) {
-			$path = substr( $path, 1 );
+
+			if ( defined( 'TESTING' ) ) {
+				throw new \InvalidArgumentException( "Cannot prompt user input in tests! Use cfg[$key]" );
+			}
+
+			$path = ltrim( $path, '?' );
 			do {
 				$get = $this->Utils->prompt( sprintf( '%s: %s', $prompt, $path ), false );
 				$get = $get ?: $path;
@@ -260,23 +278,31 @@ class Exporter
 			$path = $get;
 		}
 
-		return $this->Utils::pathFix( $path );
+		return $this->Utils->pathFix( $path );
 	}
 
 	/**
 	 * Help: Import bytes as int.
 	 *
-	 * @param int|string $bytes  Initial bytes. Prefix with '?' for user prompt
-	 * @param string     $prompt Prompt message
+	 * @param string $key    Config[key] holding bytes to update
+	 * @param string $prompt Prompt message
 	 * @return int Bytes number
 	 */
-	protected function importBytes( $bytes, string $prompt = 'Import' ): int
+	protected function importBytes( $key, string $prompt = 'Import' ): int
 	{
-		if ( is_int( $bytes ) ) {
-			return (int) $bytes;
+		// Initial bytes. Prefix with '?' for user prompt
+		$bytes = $this->Factory->get( $key );
+
+		if ( is_numeric( $bytes ) ) {
+			return $bytes;
 		}
 
 		if ( empty( $bytes ) || '?' === $bytes[0] ) {
+
+			if ( defined( 'TESTING' ) ) {
+				throw new \InvalidArgumentException( "Cannot prompt user input in tests! Use cfg[$key]" );
+			}
+
 			$bytes = ltrim( $bytes, '?' );
 			do {
 				$get = $this->Utils->prompt( sprintf( '%s: %s', $prompt, $bytes ), false );
@@ -343,7 +369,7 @@ class Exporter
 
 		$out['speed_bps'] = $out['byte_done'] / $out['time_exec'];
 
-		DEBUG && $this->debug( '$out: ' . $this->Utils->print_r( $out ) );
+		DEBUG && $this->Logger->debug( '$out: ' . $this->Utils->print_r( $out ) );
 		return $out;
 	}
 
@@ -370,9 +396,9 @@ class Exporter
 		$map = $this->Factory->get( 'export_map' );
 		$sep = $this->Factory->get( 'export_sep' );
 
-		$this->info();
-		$this->notice( 'Playlist [%s] "%s"', $pl['name'], $m3u );
-		$this->debug( $this->Utils->memory() );
+		$this->Factory->info();
+		$this->Factory->notice( 'Playlist: [{name}] "{file}"', [ '{name}' => $pl['name'], '{file}' => $m3u ] );
+		$this->Logger->debug( $this->Utils->phpMemoryMax() );
 
 		if ( !is_file( $m3u ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Unable to locate playlist file: "%s"', $m3u ) );
@@ -383,9 +409,12 @@ class Exporter
 		// Don't load another Playlist if there's no space left in given total limit
 		$bytes = $this->progress['bytes'] + $this->progress['asize'];
 		if ( $total && $bytes > $total ) {
-			$this->info( '- skipped! Less than %1$s left (total size limit: %2$s)',
-				/*1*/ $this->Utils->byteString( $this->progress['asize'] ),
-				/*2*/ $this->Utils->byteString( $total ) );
+			/* @formatter:off */
+			$this->Factory->info( '- skipped! Less than {bytes} left (total size limit: {total})', [
+				'{bytes}' => $this->Utils->byteString( $this->progress['asize'] ),
+				'{total}' => $this->Utils->byteString( $total ),
+			]);
+			/* @formatter:on */
 			return null;
 		}
 
@@ -407,16 +436,18 @@ class Exporter
 
 		$Playlist->pl = $pl;
 		$Playlist->name = $pl['name'];
-		$this->info( '- found: %s tracks', $count = $Playlist->count() );
+		$count = $Playlist->count();
+		$this->Logger->notice( "- found {$count} tracks" );
 
 		if ( $pl['shuffle'] ) {
-			$this->info( '- shuffle...' );
+			$this->Logger->notice( '- shuffle...' );
 			$Playlist->shuffle();
 		}
 
 		if ( $pl['limit'] && $pl['limit'] < $count ) {
 			$Playlist->reduce( $pl['limit'] );
-			$this->info( '- reduced to %s tracks (user limit)', $count = $Playlist->count() );
+			$count = $Playlist->count();
+			$this->Logger->notice( "- reduced to {$count} tracks (user limit)" );
 		}
 
 		$this->Factory->barNew( $count, 'bar_adding' );
@@ -453,9 +484,13 @@ class Exporter
 			if ( $total && $bytes > $total ) {
 				$Playlist->reduce( $done );
 				$this->Factory->barDel();
-				$this->info( '- reduced to %1$s tracks (total size limit: %2$s)',
-					/*1*/ $done,
-					/*2*/ $this->Utils->byteString( $total ) );
+
+				/* @formatter:off */
+				$this->Factory->info( '- reduced to {done} tracks (total size limit: {total})', [
+					'{done}'  => $done,
+					'{total}' => $this->Utils->byteString( $total ),
+				]);
+				/* @formatter:on */
 				break;
 			}
 
@@ -481,12 +516,15 @@ class Exporter
 		$this->Factory->barDel();
 		$this->progress['asize'] = $this->progress['bytes'] / $this->progress['items'];
 
-		$this->notice( 'Total tracks: %1$s | total size: %2$s | ~%3$s per track',
-			/*1*/ $this->progress['items'],
-			/*2*/ $this->Utils->byteString( $this->progress['bytes'] ),
-			/*3*/ $this->Utils->byteString( $this->progress['asize'] ) );
+		/* @formatter:off */
+		$this->Factory->notice( 'Tracks: {items} | {bytes} | ~{asize}', [
+			'{items}' => $this->progress['items'],
+			'{bytes}' => $this->Utils->byteString( $this->progress['bytes'] ),
+			'{asize}' => $this->Utils->byteString( $this->progress['asize'] ),
+		]);
+		/* @formatter:on */
 
-		$this->debug( $this->Utils->memory() );
+		$this->Logger->debug( $this->Utils->phpMemoryMax() );
 		return $Playlist;
 	}
 
@@ -503,7 +541,7 @@ class Exporter
 	/**
 	 * Convert config playlist into Playlist objects.
 	 */
-	public function playlistsLoad(): void
+	protected function playlistsLoad(): void
 	{
 		if ( $this->playlists ) {
 			return;
@@ -584,7 +622,7 @@ class Exporter
 	/**
 	 * Normalize cfg[playlists] definition.
 	 */
-	public static function plNormalize( array $pl ): array
+	protected static function plNormalize( array $pl ): array
 	{
 		/* @formatter:off */
 		$pl = array_merge([
@@ -637,20 +675,21 @@ class Exporter
 	 * Remove manifest entries from filesystem.
 	 *
 	 * Do not delete if the same file is exported again and it's size and
-	 * modification time equals: [src] === [dst].
+	 * modification time is less than 10s diffrent: [src] <=10s=> [dst].
 	 * In all other cases unlink old files and orphans that are not going to be exported again.
 	 *
 	 * @param string $type Config[{type}_dir], eg. output|export
 	 */
 	protected function manifestUnlink( string $type ): bool
 	{
-		$this->notice( 'Export dir: "%s"', $dir = $this->Factory->get( "{$type}_dir" ) );
-		$this->notice( 'Load manifest:' );
+		$dir = $this->Factory->get( "{$type}_dir" );
+
+		$this->Factory->notice( 'Sync: "%s"', $dir );
 
 		if ( !is_file( $file = $dir . '/' . $this->Factory->get( 'manifest' ) ) ) {
 			$get = $this->Utils->prompt( 'Manifest file not found! Clear export dir? y/[n]: ', false );
 			if ( 'Y' === strtoupper( $get ) ) {
-				$this->info( '- clearing export dir...' );
+				$this->Logger->notice( '- clearing export dir...' );
 				$this->Utils->dirClear( $dir );
 			}
 			return false;
@@ -677,10 +716,13 @@ class Exporter
 
 			// Shouldn't happen, but...
 			if ( $newDst && $newDst !== $old['dst'] ) {
-				$this->warning( sprintf( 'Manifest [Id:%1$s] mismatch! old [dst:"%2$s"] !== new [dst:"%3$s"]',
-					/*1*/ $id,
-					/*2*/ $old['dst'],
-					/*3*/ $newDst ) );
+				/* @formatter:off */
+				$this->Factory->warning( 'Manifest [Id:{id}] mismatch! old [dst:"{old}"] !== new [dst:"{new}"]', [
+					'{id}'  => $id,
+					'{old}' => $old['dst'],
+					'{new}' => $newDst,
+				]);
+				/* @formatter:on */
 			}
 			// Do we have a src file? Playlists: no (auto-generated), Music: yes
 			elseif ( $newSrc && is_file( $newSrc ) && is_file( $newDst ) ) {
@@ -688,22 +730,24 @@ class Exporter
 				$statDst = stat( $newDst );
 				$unlink = false;
 				$unlink |= $statSrc['size'] !== $statDst['size'];
-				$unlink |= $statSrc['mtime'] !== $statDst['mtime'];
+				$unlink |= abs( $statSrc['mtime'] - $statDst['mtime'] ) > 10; // allow 10s shift @see touch(mtime)
 				$size = $statDst['size'];
-				$this->debug( sprintf( '%6$s [Id:%7$s] "%5$s" [size:%1$s/%2$s, mtime:%3$s/%4$s]',
-					/*1*/ $statSrc['size'],
-					/*2*/ $statDst['size'],
-					/*3*/ $statSrc['mtime'],
-					/*4*/ $statDst['mtime'],
-					/*5*/ $oldDst,
-					/*6*/ $unlink ? 'Replace' : 'Keep',
-					/*7*/ $id ) );
+
+				/* @formatter:off */
+				$this->Factory->debug( '{action} [Id:{id}] "{dst}" [size:{srcB}/{dstB}, mtime:{srcT}/{dstT}]', [
+					'{action}' => $unlink ? 'Replace' : 'Keep',
+					'{id}'     => $id,
+					'{dst}'    => $oldDst,
+					'{srcB}'   => $statSrc['size'],
+					'{dstB}'   => $statDst['size'],
+					'{srcT}'   => $statSrc['mtime'],
+					'{dstT}'   => $statDst['mtime'],
+				]);
+				/* @formatter:on */
 			}
 			elseif ( $old['dst'] && !$newDst ) {
 				$orphaned++;
-				$this->debug( sprintf( 'Orphaned [Id:%2$s] "%1$s"',
-					/*1*/ $oldDst,
-					/*2*/ $id ) );
+				$this->Factory->debug( 'Orphaned [Id:{id}] "{path}"', [ '{id}' => $id, '{path}' => $oldDst ] );
 			}
 
 			// Delete to allow copy new file
@@ -720,14 +764,17 @@ class Exporter
 		$this->Factory->barDel();
 
 		// Summary:
-		$deleted && $this->info( '- deleted %1$s previously exported files (%2$s orphaned)', $deleted, $orphaned );
+		$deleted && $this->Logger->notice( "- deleted {$deleted} previously exported files ({$orphaned} orphaned)" );
 
 		if ( $items ) {
 			$this->progress['bytes'] -= $bytes;
 			$this->progress['items'] -= $items; // might be 0 items!
-			$this->info( '- saved %1$s by not exporting %2$s matched files.',
-				/*1*/ $this->Utils->byteString( $bytes ),
-				/*2*/ $items );
+			/* @formatter:off */
+			$this->Factory->info( '- saved {bytes} by not exporting {items} matched files.', [
+				'{bytes}' => $this->Utils->byteString( $bytes ),
+				'{items}' => $items,
+			]);
+			/* @formatter:on */
 		}
 
 		return @unlink( $file );
@@ -752,11 +799,11 @@ class Exporter
 	{
 		$config = "{$name}_str";
 		$prompt = sprintf( '%s size', $label );
-		$total = $this->importBytes( $this->Factory->get( $name ), "Set {$prompt} (0 - unlimited)" );
+		$total = $this->importBytes( $name, "Set {$prompt} (0 - unlimited)" );
 
 		$this->Factory->cfg( $name, $total );
 		$this->Factory->cfg( $config, $total ? $this->Utils->byteString( $total ) : 'no limit' );
-		$this->notice( '%s set: "%s"', $prompt, $this->Factory->get( $config ) );
+		$this->Factory->notice( '{name} set: "{path}"', [ '{name}' => $prompt, '{path}' => $this->Factory->get( $config ) ] );
 	}
 
 	/**
@@ -764,7 +811,18 @@ class Exporter
 	 */
 	public function run(): void
 	{
-		$this->Factory->cmdTitle();
+		parent::run();
+
+		$this->isExport = (bool) $this->Factory->get( 'export_dir' );
+
+		$this->PlaylistAll = $this->Factory->Playlist(); // dont link with file yet!
+		$this->PlaylistAll->pl = $this->plNormalize( [ 'name' => $this->Factory->get( 'playlist_all' ) ] );
+
+		if ( !is_dir( $dir = $this->Factory->get( 'winamp_dir' ) ) ) {
+			throw new \InvalidArgumentException( sprintf( 'Winamp ML dir "%s" not found at "%s". Check cfg[winamp_dir]',
+				/**/ $dir,
+				/**/ getcwd() ) );
+		}
 
 		// Config
 		$this->setBytes( 'total_size', 'Total' );
@@ -773,21 +831,21 @@ class Exporter
 
 		// Load tracks
 		$this->playlistsLoad();
-		$this->info();
+		$this->Factory->info();
 		$this->plsSummary();
 
 		// Generate playlists
-		$this->info();
+		$this->Factory->info();
 		$this->runOutput();
 
 		// Copy tracks
 		if ( $this->isExport ) {
-			$this->info();
+			$this->Factory->info();
 			$this->runExport();
 		}
 
-		$this->Factory->cmdTitle();
-		$this->notice( 'Done.' );
+		$this->cmdTitle();
+		$this->Logger->notice( 'Done.' );
 	}
 
 	/**
@@ -797,13 +855,18 @@ class Exporter
 	 */
 	protected function plsSummary()
 	{
-		$this->notice( 'Playlist [%s] - all tracks summary', $this->PlaylistAll->pl['name'] );
-		$this->notice( 'Total tracks: %1$s (%5$s dupes) | total size: %2$s | ~%3$s per track',
-			/*1*/ $this->progress['items'],
-			/*2*/ $this->Utils->byteString( $this->progress['bytes'] ),
-			/*3*/ $this->Utils->byteString( $this->progress['asize'] ),
-			/*4*/ $this->PlaylistAll->pl['name'],
-			/*5*/ $this->progress['dupes'] );
+		/* @formatter:off */
+		$this->Factory->notice([
+			'Playlist: [{name}] - all tracks summary',
+			'Tracks: {items} ({dupes} dupes) | {bytes} | ~{asize}',
+			],[
+			'{name}' => $this->PlaylistAll->pl['name'],
+			'{items}' => $this->progress['items'],
+			'{bytes}' => $this->Utils->byteString( $this->progress['bytes'] ),
+			'{asize}' => $this->Utils->byteString( $this->progress['asize'] ),
+			'{dupes}' => $this->progress['dupes'],
+		]);
+		/* @formatter:on */
 
 		// Release memory
 		$this->garbage( $this->PlaylistAll->id2bytes );
@@ -815,9 +878,9 @@ class Exporter
 	protected function garbage( &$item ): void
 	{
 		if ( $this->Factory->get( 'garbage_collect' ) ) {
-			$this->debug( $this->Utils->memory(), 1 );
+			$this->Factory->debug( $this->Utils->phpMemoryMax(), 1 );
 			$item = null;
-			$this->debug( $this->Utils->memory(), 1 );
+			$this->Factory->debug( $this->Utils->phpMemoryMax(), 1 );
 		}
 	}
 
@@ -874,7 +937,7 @@ class Exporter
 		file_put_contents( $file, $header . implode( "\n", $tracks ) . "\n" );
 
 		$this->manifestInsert( 'output', $file );
-		$this->notice( 'Save [%s] "%s"', $Playlist->pl['name'], realpath( $file ) );
+		$this->Factory->notice( '- save [{name}] "{path}"', [ '{name}' => $Playlist->pl['name'], '{path}' => realpath( $file ) ] );
 	}
 
 	/**
@@ -891,9 +954,13 @@ class Exporter
 		$this->manifestUnlink( 'export' );
 		$this->manifestWrite( 'export' );
 
-		$this->notice( 'Export %2$s tracks | %1$s',
-			/*1*/ $this->Utils->byteString( $this->progress['bytes'] ),
-			/*2*/ $this->progress['items'] );
+		/* @formatter:off */
+		$this->Factory->notice( 'Sync: {items} tracks | {bytes}', [
+			'{items}' => $this->progress['items'],
+			'{bytes}' => $this->Utils->byteString( $this->progress['bytes'] ),
+		]);
+		/* @formatter:on */
+
 		$this->Factory->barNew( $this->progress['items'], 'bar_exporting' );
 
 		foreach ( $this->manifest['export'] as $new ) {
@@ -907,16 +974,15 @@ class Exporter
 			$info = $this->progress();
 
 			/* @formatter:off */
-			$this->Factory->cmdTitle([
-					'%cent_done%' => floor( $info['cent_done'] ),
-					'%time_left%' => $this->Utils->timeString( $info['time_left'], 0 ),
-					'%speed_bps%' => $this->Utils->byteString( $info['speed_bps'] ),
-				],
-				'[%cent_done%%] %time_left% left at %speed_bps%/s - %cmd_title%',
-			);
+			$this->cmdTitle( '[{cent_done}%] {time_left} left at {speed_bps}/s', [
+				'{cent_done}' => floor( $info['cent_done'] ),
+				'{time_left}' => $this->Utils->timeString( $info['time_left'], 0 ),
+				'{speed_bps}' => $this->Utils->byteString( $info['speed_bps'] ),
+			]);
 			/* @formatter:on */
 
 			// Create "last" subdir, copy to [dst], update [dst:mtime] to match [src:mtime]
+			// Warning: The touch(mtime) might be 1s inaccurate! Bug or performance?
 			@mkdir( dirname( $new['dst'] ), 0777, true );
 			copy( $new['src'], $new['dst'] );
 			touch( $new['dst'], filemtime( $new['src'] ) );

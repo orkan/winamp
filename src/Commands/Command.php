@@ -1,11 +1,10 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Commands;
 
-use Orkan\Logging;
 use Orkan\Utils;
 use Orkan\Winamp\Factory;
 use Orkan\Winamp\Tools\Winamp;
@@ -23,8 +22,6 @@ use Symfony\Component\Finder\Finder;
  */
 class Command extends \Symfony\Component\Console\Command\Command
 {
-	use Logging;
-
 	protected static $defaultName = 'common';
 	protected $input;
 	protected $output;
@@ -64,22 +61,34 @@ class Command extends \Symfony\Component\Console\Command\Command
 	 * {@inheritDoc}
 	 * @see \Symfony\Component\Console\Command\Command::execute()
 	 */
-	protected function execute( InputInterface $input, OutputInterface $output )
+	protected function execute( InputInterface $Input, OutputInterface $Output )
 	{
-		if ( $input->getOption( 'dry-run' ) ) {
-			$output->setVerbosity( max( OutputInterface::VERBOSITY_NORMAL, $output->getVerbosity() ) );
+		$this->input = $Input;
+		$this->output = $Output;
+
+		// Only PHPUnit script args are available during tests!
+		if ( defined( 'TESTING' ) ) {
+			return Command::FAILURE;
 		}
 
-		$this->input = $input;
-		$this->output = $output;
+		if ( $Input->getOption( 'dry-run' ) ) {
+			$Output->setVerbosity( max( OutputInterface::VERBOSITY_NORMAL, $Output->getVerbosity() ) );
+		}
 
+		// Match Orkan\Logger verbosity to CMD --verbose
+		$this->Factory->cfg( 'log_verbose', $this->Factory::VERBOSITY[$Output->getVerbosity()] );
+
+		// This is a generic command (abstract?)
 		return Command::FAILURE;
 	}
 
+	/**
+	 * Get user input: Yes|No.
+	 */
 	protected function confirm( $question )
 	{
 		$Helper = $this->getHelper( 'question' );
-		$Question = new ConfirmationQuestion( "$question [y/N]: ", false );
+		$Question = new ConfirmationQuestion( "$question y/[n]: ", false );
 		return $Helper->ask( $this->input, $this->output, $Question );
 	}
 
@@ -127,7 +136,7 @@ class Command extends \Symfony\Component\Console\Command\Command
 
 		$pls = [];
 		$base = dirname( $file );
-		$this->info( 'Load "%s"', $file );
+		$this->Factory->info( 'Load "%s"', $file );
 
 		foreach ( Winamp::loadPlaylists( $file ) as $val ) {
 
@@ -135,11 +144,11 @@ class Command extends \Symfony\Component\Console\Command\Command
 				$pls[$val['title']] = $loc;
 			}
 			else {
-				$this->warning( 'Failed to locate "%s"', $val['filename'] );
+				$this->Factory->warning( 'Failed to locate "%s"', $val['filename'] );
 			}
 		}
 
-		$this->info( '- playlists: %d', count( $pls ) );
+		$this->Logger->info( '- playlists: ' . count( $pls ) );
 		return $pls;
 	}
 }

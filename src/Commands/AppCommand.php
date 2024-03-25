@@ -1,7 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Commands;
 
@@ -46,6 +46,7 @@ EOT );
 	protected function execute( InputInterface $input, OutputInterface $output )
 	{
 		parent::execute( $input, $output );
+
 		switch ( $input->getArgument( 'type' ) )
 		{
 			case 'name':

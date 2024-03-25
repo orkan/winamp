@@ -1,7 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Tools;
 
@@ -545,10 +545,12 @@ class Playlist
 		// Don't create backup if we are not overwriting any files
 		if ( $write && $backup && is_file( $result['file'] ) ) {
 			rename( $result['file'], $result['back'] = self::backupName( $result['file'] ) );
+			$result['back'] = realpath( $result['back'] );
 		}
 
 		if ( $write ) {
 			$result['bytes'] = file_put_contents( $result['file'], $lines );
+			$result['file'] = realpath( $result['file'] );
 		}
 
 		$this->isDirty = false;

@@ -1,7 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Commands;
 
@@ -23,8 +23,8 @@ class MathCommand extends Command
 
 	/* @formatter:off */
 	private $methods = [
-		'sub' => 'Substract',
-		'add' => 'Add',
+		'sub' => ['name' => 'Substract', 'math' => '-' ],
+		'add' => ['name' => 'Add'      , 'math' => '+' ],
 	];
 	/* @formatter:on */
 
@@ -40,7 +40,7 @@ class MathCommand extends Command
 	 */
 	protected function configure()
 	{
-		$this->setDescription( 'Add or substract two playlists' );
+		$this->setDescription( 'Math playlists' );
 		$this->setHelp( 'Add: a + b = o. Substract: a - b = o.' );
 
 		$Playlist = new Playlist( $this->Factory );
@@ -68,8 +68,8 @@ class MathCommand extends Command
 
 		/* @formatter:off */
 		$pls = [
-			'pla' => [ 'path' => $input->getArgument( 'a' ), 'label' => 'Playlist A'    ],
-			'plb' => [ 'path' => $input->getArgument( 'b' ), 'label' => 'Playlist B' ],
+			'pla' => [ 'path' => $input->getArgument( 'a' ), 'label' => 'Playlist A'      ],
+			'plb' => [ 'path' => $input->getArgument( 'b' ), 'label' => 'Playlist B'      ],
 			'out' => [ 'path' => $input->getArgument( 'o' ), 'label' => 'Output playlist' ],
 		];
 		/* @formatter:on */
@@ -90,13 +90,25 @@ class MathCommand extends Command
 			}
 		}
 
-		if ( !in_array( $method, [ 'add', 'sub' ] ) ) {
-			throw new \InvalidArgumentException( sprintf( 'Method "%s" is not supported yet :(', $method ) );
+		if ( !in_array( $method, array_keys( $this->methods ) ) ) {
+			throw new \InvalidArgumentException( sprintf( 'Method "%s" not implemented!', $method ) );
 		}
 
-		$this->Logger->info( '=========================' );
-		$this->Logger->info( $this->methods[$method] . ' playlists:' );
-		$this->Logger->info( '=========================' );
+		/* @formatter:off */
+		$this->Factory->info([
+			'=',
+			'{command}: [{a}] {math} [{b}] = [{o}]',
+			'=',
+		],[
+			'{command}' => $this->getDescription(),
+			'{action}'  => $this->methods[$method]['name'],
+			'{math}'    => $this->methods[$method]['math'],
+			'{a}'       => basename( $pls['pla']['path'] ),
+			'{b}'       => basename( $pls['plb']['path'] ),
+			'{o}'       => basename( $pls['out']['path'] ),
+		]);
+		/* @formatter:on */
+
 		$this->Logger->debug( 'Args: ' . Utils::print_r( array_merge( $input->getOptions(), $input->getArguments() ) ) );
 
 		// =============================================================================================================
@@ -134,8 +146,6 @@ class MathCommand extends Command
 		$cPlb = count( $plb );
 		$cOut = count( $out );
 
-		$this->Logger->info( 'Results:' );
-
 		switch ( $method )
 		{
 			case 'add':
@@ -143,7 +153,7 @@ class MathCommand extends Command
 				break;
 
 			case 'sub':
-				$this->Logger->notice( sprintf( '%d - %d (of %d) = %d', $cPla, ( $cPla - $cOut ), $cPlb, $cOut ) );
+				$this->Logger->notice( sprintf( '%d - %d (%d) = %d', $cPla, ( $cPla - $cOut ), $cPlb, $cOut ) );
 				break;
 		}
 
@@ -151,7 +161,7 @@ class MathCommand extends Command
 		// Sort
 		if ( $input->getOption( 'sort' ) ) {
 			if ( $Playlist->sort() ) {
-				$this->Logger->info( sprintf( 'Sort' ) );
+				$this->Logger->info( sprintf( '- sort' ) );
 			}
 		}
 
@@ -159,12 +169,17 @@ class MathCommand extends Command
 		// Save
 		$isBackup = !$input->getOption( 'no-backup' );
 
-		$strBackup = $isBackup ? ' +backup' : '';
+		/* @formatter:off */
+		$this->Factory->info('- save [{filename}]{isBackup}',[
+			'{filename}' => basename( $pls['out']['path'] ),
+			'{isBackup}' => $isBackup ? ' +backup' : '',
+		]);
+		/* @formatter:on */
+
 		$save = $Playlist->save( !$isDry, $isBackup, '', 'orig' ); // save original path entries
 
-		$this->Logger->info( sprintf( "Save [%s]%s", basename( $pls['out']['path'] ), $strBackup ) );
-		$this->Logger->info( sprintf( 'Saved "%s"', $save['file'] ) );
-		$isBackup && $this->Logger->info( sprintf( 'Back "%s"', $save['back'] ?: '---' ) );
+		$this->Factory->info( '- saved "%s"', $save['file'] );
+		$isBackup && $this->Factory->info( '- back  "%s"', $save['back'] ?: '---' );
 
 		return Command::SUCCESS;
 	}

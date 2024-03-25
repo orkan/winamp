@@ -1,12 +1,10 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Commands;
 
-use Orkan\Utils;
-use Orkan\Winamp\Tools\Winamp;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -39,7 +37,7 @@ class ShowCommand extends Command
 		$this->setDescription( 'Display Winamp playlists' );
 		$this->setHelp( 'Display user defined Winamp playlists' );
 
-		$this->addOption( 'infile', 'i', InputOption::VALUE_REQUIRED, 'Winamp playlists file', $this->Factory->cfg( 'winamp_playlists' ) );
+		$this->addOption( 'infile', 'i', InputOption::VALUE_REQUIRED, 'Winamp playlists file', $this->Factory->get( 'winamp_playlists' ) );
 
 		$vals = implode( ' | ', $this->sort );
 		$this->addOption( 'sort', 's', InputOption::VALUE_REQUIRED, "Sort playlists by: {$vals}.", $this->sort[0] );
@@ -57,21 +55,32 @@ class ShowCommand extends Command
 	 */
 	protected function execute( InputInterface $input, OutputInterface $output )
 	{
-		$this->Logger->info( '=================' );
-		$this->Logger->info( 'Winamp playlists:' );
-		$this->Logger->info( '=================' );
+		parent::execute( $input, $output );
 
 		/* @formatter:off */
 		$args = [
-			'infile' => $input->getOption( 'infile' ),
+			'infile' => realpath( $input->getOption( 'infile' ) ),
 			'sort'   => $input->getOption( 'sort' ),
 			'dir'    => $input->getOption( 'dir' ),
 			'format' => $input->getOption( 'format' ),
 		];
 		/* @formatter:on */
-		$this->Logger->debug( 'Input arguments: ' . Utils::print_r( $args ) );
 
-		$pls = Winamp::loadPlaylists( $args['infile'] );
+		/* @formatter:off */
+		$this->Factory->info([
+			'=',
+			'{command}',
+			'Input file: "{inputFile}"',
+			'=',
+		],[
+			'{command}'   => $this->getDescription(),
+			'{inputFile}' => $args['infile'],
+		]);
+		/* @formatter:on */
+
+		DEBUG && $this->Logger->debug( 'Args: ' . $this->Utils->print_r( array_merge( $input->getOptions(), $input->getArguments() ) ) );
+
+		$pls = $this->Factory->Winamp()->loadPlaylists( $args['infile'] );
 		DEBUG && $this->logPlaylistArray( $pls );
 
 		if ( empty( $pls ) ) {
@@ -86,11 +95,17 @@ class ShowCommand extends Command
 			}
 		}
 		else {
-			Utils::arraySortMulti( $pls, $args['sort'], 'asc' === $args['dir'] );
+			$this->Utils->arraySortMulti( $pls, $args['sort'], 'asc' === $args['dir'] );
 			$isSort = true;
 		}
 
-		$isSort && $this->Logger->info( sprintf( 'Sort playlists by: %s | %s', $args['sort'], $args['dir'] ) );
+		/* @formatter:off */
+		$isSort && $this->Factory->info( 'Sort playlists by: {sort} | {dir}', [
+			'{sort}' => $args['sort'],
+			'{dir}'  => $args['dir'],
+		]);
+		/* @formatter:on */
+
 		DEBUG && $isSort && $this->logPlaylistArray( $pls );
 
 		$Table = new Table( $output );
@@ -103,7 +118,7 @@ class ShowCommand extends Command
 					$Table->addRow( [
 						$pl['title'],
 						sprintf( "%13s", $pl['songs'] ),
-						sprintf( "%18s", Utils::timeString( $pl['seconds'], false ) ),
+						sprintf( "%18s", $this->Utils->timeString( $pl['seconds'], false ) ),
 					] );
 					/* @formatter:on */
 				}
@@ -132,16 +147,14 @@ class ShowCommand extends Command
 
 		// -------------------------------------------------------------------------------------------------------------
 		// Summary
-		if ( $output->isVerbose() ) {
+		if ( $this->Logger->is( 'INFO' ) ) {
 			$stats = $this->stats( $pls );
-
 			/* @formatter:off */
-			$this->Logger->info( sprintf(
-				'Playlists: %1$s | Songs: %2$s | Duration: %3$s',
-				$stats['count'],
-				Utils::numberString( $stats['songs'] ),
-				Utils::timeString( $stats['seconds'], false )
-			));
+			$this->Factory->notice( 'Playlists: {count} | Songs: {songs} | Duration: {seconds}', [
+				'{count}'   => $stats['count'],
+				'{songs}'   => $stats['songs'],
+				'{seconds}' => $this->Utils->timeString( $stats['seconds'], false )
+			]);
 			/* @formatter:on */
 		}
 
@@ -169,7 +182,7 @@ class ShowCommand extends Command
 	{
 		$i = 0;
 		foreach ( $arr as $pl ) {
-			$this->Logger->debug( sprintf( 'Playlist #%d: %s', ++$i, Utils::print_r( $pl ) ) );
+			$this->Logger->debug( sprintf( 'Playlist #%d: %s', ++$i, $this->Utils->print_r( $pl ) ) );
 		}
 	}
 }

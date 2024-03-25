@@ -1,7 +1,7 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp\Commands;
 
@@ -13,7 +13,7 @@ use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\Question;
 
 /**
- * Rebuild playlists.xml file
+ * Rebuild playlists.xml file.
  *
  * @author Orkan <orkans+winamp@gmail.com>
  */
@@ -76,69 +76,69 @@ class RebuildCommand extends Command
 
 		$this->setDescription( 'Rebuild playlists' );
 		$this->setHelp( <<<EOT
-Scan playlist file ({$this->inputExtStr}) and validate path entries.
---------------------------------------------------------------------
-
-Every time you change the location of your media files, the playlists
-won't take those changes and you will get the wrong paths. This tool tries
-to find missing entries in all your playlists and update it accordingly.
-
-For best results, place your media files in alphabetical subfolders
-(see Media folder). In the case of a different folder layout,
-semi-automatic methods have been implemented (see Validation).
-
-----------
-Validation
-----------
-Scan all playlists from Winamp Media Library playlists.xml or any
-single playlist file and replace all paths to absolute ones (see Q&A).
-
-There are 5 steps to validate each track:
-
-  a) Check that the playlist entry is pointing to an existing file. If not, then:
-  b) Check that file exists in mapped location (see Relocate). If not, then:
-  c) Check that file exists after renaming (see Rename). If not, then:
-  d) Check that file exists in [Media folder] by testing the first letter. If not, then:
-  e) Ask for an action:
-
-     [1] Update - enter new path for current track
-     [2] Relocate - replace path for current and remaining tracks
-     [3] Rename - rename filenames with regex pattern
-     [4] Remove - remove current playlist entry
-     [5] Skip (default) - leave current track and skip to next one
-     [6] Exit - return to prompt line
-
-------------
-Media folder
-------------
-The [Media folder] structure should be organized into sub folders,
-each named with Regular Expressions notation, describing letters range
-of filenames they are holding, ie. [A-Z] or [0-9].
-
-If there is no folder that match the first letter of a filename, then 
-it will look in Escape folder instead (def. {$this->defaultEsc})
-
-Example dir structure:
-
-[Media folder]
-  |
-  +-- [0-9] For filenames starting with a number (also default Escape folder)
-  +-- [A-D] For filenames starting with letters: a, b, c, d
-  +-- ...
-  +-- [T-T] For filenames starting with letter: t
-
-
--------------------
-Questions & Answers
--------------------
-Why it replaces relative paths to absolute?
-Because it verifies location for every track in playlist, it's imposible to
-generate relative path from an old invalid location.
-
-EOT );
+		Scan playlist file ({$this->inputExtStr}) and validate path entries.
+		--------------------------------------------------------------------
+		
+		Every time you change the location of your media files, the playlists
+		won't take those changes and you will get the wrong paths. This tool tries
+		to find missing entries in all your playlists and update it accordingly.
+		
+		For best results, place your media files in alphabetical subfolders
+		(see Media folder). In the case of a different folder layout,
+		semi-automatic methods have been implemented (see Validation).
+		
+		----------
+		Validation
+		----------
+		Scan all playlists from Winamp Media Library playlists.xml or any
+		single playlist file and replace all paths to absolute ones (see Q&A).
+		
+		There are 5 steps to validate each track:
+		
+		  a) Check that the playlist entry is pointing to an existing file. If not, then:
+		  b) Check that file exists in mapped location (see Relocate). If not, then:
+		  c) Check that file exists after renaming (see Rename). If not, then:
+		  d) Check that file exists in [Media folder] by testing the first letter. If not, then:
+		  e) Ask for an action:
+		
+		     [1] Update - enter new path for current track
+		     [2] Relocate - replace path for current and remaining tracks
+		     [3] Rename - rename filenames with regex pattern
+		     [4] Remove - remove current playlist entry
+		     [5] Skip (default) - leave current track and skip to next one
+		     [6] Exit - return to prompt line
+		
+		------------
+		Media folder
+		------------
+		The [Media folder] structure should be organized into sub folders,
+		each named with Regular Expressions notation, describing letters range
+		of filenames they are holding, ie. [A-Z] or [0-9].
+		
+		If there is no folder that match the first letter of a filename, then 
+		it will look in Escape folder instead (def. {$this->defaultEsc})
+		
+		Example dir structure:
+		
+		[Media folder]
+		  |
+		  +-- [0-9] For filenames starting with a number (also default Escape folder)
+		  +-- [A-D] For filenames starting with letters: a, b, c, d
+		  +-- ...
+		  +-- [T-T] For filenames starting with letter: t
+		
+		
+		-------------------
+		Questions & Answers
+		-------------------
+		Why it replaces relative paths to absolute?
+		Because it verifies location for every track in playlist, it's imposible to
+		generate relative path from an old invalid location.
+		
+		EOT );
 
 		$this->addArgument( 'media-folder', InputArgument::REQUIRED, '[Media folder] - Media files location' );
-		$this->addOption( 'infile', 'i', InputOption::VALUE_REQUIRED, "Winamp playlist.xml or single playlist file ($this->inputExtStr)", $this->Factory->cfg( 'winamp_playlists' ) );
+		$this->addOption( 'infile', 'i', InputOption::VALUE_REQUIRED, "Winamp playlist.xml or single playlist file ($this->inputExtStr)", $this->Factory->get( 'winamp_playlists' ) );
 		$this->addOption( 'esc', 'e', InputOption::VALUE_REQUIRED, '[Escape] sub-folder inside [Media folder]', $this->defaultEsc );
 		$this->addOption( 'sort', null, InputOption::VALUE_NONE, 'Sort playlist' );
 		$this->addOption( 'dupes', null, InputOption::VALUE_NONE, 'Remove duplicates' );
@@ -158,13 +158,10 @@ EOT );
 	{
 		parent::execute( $input, $output );
 
-		$this->info( '=========================' );
-		$this->info( 'Rebuild Winamp playlists:' );
-		$this->info( '=========================' );
-		$this->debug( 'Args: ' . $this->Utils->print_r( array_merge( $input->getOptions(), $input->getArguments() ) ) );
-
 		$infile = $input->getOption( 'infile' );
 
+		// -------------------------------------------------------------------------------------------------------------
+		// Validate:
 		if ( !in_array( $this->Utils->fileExt( $infile ), $this->inputExt ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Input file "%s" not in supproted extensions: %s',
 				/**/ $infile,
@@ -175,7 +172,7 @@ EOT );
 		$locations = [
 			$infile,
 			getcwd() . '/' . basename( $infile ),
-			dirname( $this->Factory->cfg( 'winamp_playlists' ) ) . '/' . basename( $infile ),
+			dirname( $this->Factory->get( 'winamp_playlists' ) ) . '/' . basename( $infile ),
 		];
 		/* @formatter:on */
 
@@ -187,26 +184,40 @@ EOT );
 
 		if ( !is_file( $inputFile ) ) {
 			throw new \InvalidArgumentException( sprintf( "Playlist file not found. Was trying:\n%s",
-			/**/ $this->Utils->arrayImplode( $locations, ",\n" ) ) );
+				/**/ $this->Utils->arrayImplode( $locations, ",\n" ) ) );
 		}
 
 		if ( !is_dir( $mediaDir = $this->Utils->pathToAbs( $input->getArgument( 'media-folder' ), getcwd() ) ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Media folder "%s" not found in "%s"',
-			/**/ $input->getArgument( 'media-folder' ), getcwd() ) );
+				/**/ $input->getArgument( 'media-folder' ), getcwd() ) );
 		}
 
 		if ( !is_dir( $escDir = $this->Utils->pathToAbs( $mediaDir . '/' . $input->getOption( 'esc' ), getcwd() ) ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Escape folder "%s" not found in "%s"',
-			/**/ $input->getOption( 'esc' ), $mediaDir ) );
+				/**/ $input->getOption( 'esc' ), $mediaDir ) );
 		}
 
 		if ( !empty( $format = $input->getOption( 'format' ) ) && !in_array( $format, $this->outputExt ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Unsuported output format "%s"',
-			/**/ $format ) );
+				/**/ $format ) );
 		}
 
-		$this->debug( 'Resolved [Media folder] "%s"', $mediaDir );
-		$this->debug( 'Resolved [Escape folder] "%s"', $escDir );
+		/* @formatter:off */
+		$this->Factory->info([
+			'=',
+			'{command}',
+			'   Input file: "{inputFile}"',
+			' Media folder: "{mediaDir}"',
+			'=',
+		],[
+			'{command}' => $this->getDescription(),
+			'{inputFile}' => $inputFile,
+			'{mediaDir}'  => $mediaDir,
+		]);
+		/* @formatter:on */
+
+		DEBUG && $this->Factory->debug( 'Escape folder: "%s"', $escDir );
+		DEBUG && $this->Logger->debug( 'Args: ' . $this->Utils->print_r( array_merge( $input->getOptions(), $input->getArguments() ) ) );
 
 		// =============================================================================================================
 		// Each playlist
@@ -222,15 +233,15 @@ EOT );
 				'onLoad' => [ $this->Factory, 'onPlaylistLoad' ],
 			]);
 			/* @formatter:on */
+			$this->Logger->debug( $this->Utils->phpMemoryMax() );
 
-			$this->info();
-			$this->notice( 'Playlist [%s] "%s"', $playlistName, $playlistPath );
+			$this->Factory->info();
+			$this->Factory->notice( 'Playlist [{name}] "{path}"', [ '{name}' => $playlistName, '{path}' => $playlistPath ] );
 
 			$playlistCount = $Playlist->count();
 			$playlistCountSkip = 0;
-			$this->debug( $this->Utils->memory() );
-			$this->info( '- tracks: %d ', $playlistCount );
-			$this->info( '- analyzing...' );
+			$this->Logger->info( '- tracks: ' . $playlistCount );
+			$this->Logger->info( '- analyzing...' );
 
 			// =========================================================================================================
 			// Each mp3
@@ -252,18 +263,18 @@ EOT );
 				/* @formatter:on */
 
 				if ( 'Skip' == $itemPath ) {
-					$this->notice( '- skip "%s"', $item['orig'] );
+					$this->Factory->info( '- skip "%s"', $item['orig'] );
 					$Playlist->itemUpdate( $id, $item['orig'] ); // replace missing realpath with original entry
 					$playlistCountSkip++;
 					continue;
 				}
 				if ( 'Remove' == $itemPath ) {
-					$this->notice( '- remove "%s"', $item['orig'] );
+					$this->Factory->info( '- remove "%s"', $item['orig'] );
 					$Playlist->remove( $id );
 					continue;
 				}
 				if ( 'Exit' == $itemPath ) {
-					$this->warning( 'User Exit' );
+					$this->Logger->warning( 'User Exit' );
 					return Command::FAILURE;
 				}
 
@@ -277,9 +288,9 @@ EOT );
 				// Update
 				$itemPath = realpath( $itemPath );
 				if ( $item['orig'] != $itemPath ) {
-					$this->notice( '- update:' );
-					$this->notice( '  <-- "%s"', $item['orig'] );
-					$this->notice( '  --> "%s"', $itemPath );
+					$this->Logger->info( '- update:' );
+					$this->Factory->info( '  <-- "%s"', $item['orig'] );
+					$this->Factory->info( '  --> "%s"', $itemPath );
 					$Playlist->itemUpdate( $id, $itemPath );
 				}
 
@@ -288,8 +299,8 @@ EOT );
 				// =====================================================================================================
 			}
 
-			count( $this->dirMap ) && $this->debug( 'Relocate MAP: ' . $this->Utils->print_r( $this->dirMap ) );
-			count( $this->regMap ) && $this->debug( 'Rename MAP: ' . $this->Utils->print_r( $this->regMap ) );
+			DEBUG && count( $this->dirMap ) && $this->Logger->debug( 'Relocate MAP: ' . $this->Utils->print_r( $this->dirMap ) );
+			DEBUG && count( $this->regMap ) && $this->Logger->debug( 'Rename MAP: ' . $this->Utils->print_r( $this->regMap ) );
 
 			// ---------------------------------------------------------------------------------------------------------
 			// Duplicates: updated paths may resolve to same location!
@@ -300,7 +311,7 @@ EOT );
 			// ---------------------------------------------------------------------------------------------------------
 			// Sort
 			if ( $input->getOption( 'sort' ) ) {
-				$this->info( '- sort: %s', $Playlist->sort() ? 'changed' : 'not changed' );
+				$this->Logger->info( '- sort: ' . ( $Playlist->sort() ? 'changed' : 'not changed' ) );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
@@ -326,16 +337,16 @@ EOT );
 			$this->stats['after'] += $playlistCountFinal;
 
 			if ( $stats['removed'] ) {
-				$this->info( '- removed (%d):', $stats['removedCount'] );
-				foreach ( $stats['removed'] as $val ) {
-					$this->info( '  <-- "%s"', $val );
+				$this->Factory->info( '- removed (%s):', $stats['removedCount'] );
+				foreach ( $stats['removed'] as $path ) {
+					$this->Factory->info( '  <-- "%s"', $path );
 				}
 			}
 
 			if ( $stats['duped'] ) {
-				$this->info( '- duplicates (%s):', count( $stats['duped'] ) );
+				$this->Factory->info( '- duplicates (%s):', count( $stats['duped'] ) );
 				foreach ( $stats['dupes'] as $path => $ids ) {
-					$this->info( '  x%d - %s', count( $ids ), $path );
+					$this->Factory->info( '  x{count} - {path}', [ '{count}' => count( $ids ), '{path}' => $path ] );
 				}
 			}
 
@@ -348,30 +359,33 @@ EOT );
 			$isForce |= $outFormat != $Playlist->cfg( 'type' );
 
 			if ( $Playlist->isDirty() || $isForce ) {
+				/* @formatter:off */
+				$this->Factory->info( '- save:{force}{backup}', [
+					'{force}'  => $isForce  ? ' +force '  : '',
+					'{backup}' => $isBackup ? ' +backup ' : '',
+				]);
+				/* @formatter:on */
 
-				$this->info( '- save:%s%s', $isForce ? ' +force ' : '', $isBackup ? ' +backup ' : '' );
 				$save = $Playlist->save( !$isDry, $isBackup, $outFormat );
 
-				$this->info( '- saved: "%s"', $save['file'] );
-				$isBackup && $this->info( '- backup: "%s"', $save['back'] ?: '---' );
+				$this->Factory->info( '- saved: "%s"', $save['file'] );
+				$isBackup && $this->Factory->info( '- backup: "%s"', $save['back'] ?: '---' );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
 			/* @formatter:off */
-			$this->notice(
-				'Summary: %2$d paths updated: ' .
-				'%3$d moved, %4$d removed, %5$s dupes --> ' .
-				'%6$d before, %7$d after (%8$d erased, %9$d skiped)',
-				/*1*/ $playlistName,
-				/*2*/ $stats['updated'],
-				/*3*/ $stats['movedCount'],
-				/*4*/ $stats['removedCount'],
-				/*5*/ $input->getOption( 'dupes' ) ? $stats['dupedCount'] : '?',
-				/*6*/ $playlistCount,
-				/*7*/ $playlistCountFinal,
-				/*8*/ $stats['erased'],
-				/*9*/ $playlistCountSkip,
-			);
+			$this->Factory->info( 'Summary: {updated} paths updated:' .
+				' {moved} moved, {removed} removed, {dupes} dupes -->' .
+				' {before} before, {after} after ({erased} erased, {skiped} skiped)', [
+				'{updated}' => $stats['updated'],
+				'{moved}'   => $stats['movedCount'],
+				'{removed}' => $stats['removedCount'],
+				'{dupes}'   => $input->getOption( 'dupes' ) ? $stats['dupedCount'] : '?',
+				'{before}'  => $playlistCount,
+				'{after}'   => $playlistCountFinal,
+				'{erased}'  => $stats['erased'],
+				'{skiped}'  => $playlistCountSkip,
+			]);
 			/* @formatter:on */
 
 			// =========================================================================================================
@@ -382,23 +396,23 @@ EOT );
 		// Summary
 		if ( $this->stats['count'] > 1 ) {
 
-			$this->notice( '=' );
-
 			/* @formatter:off */
-			$this->notice( 'In %1$d playlists found %2$d entries (%3$d moved, %4$d removed, %5$d dupes)',
-				/*1*/ $this->stats['count'],
-				/*2*/ $this->stats['items'],
-				/*3*/ $this->stats['moved'],
-				/*4*/ $this->stats['removed'],
-				/*5*/ $this->stats['duped'],
-			);
-			$this->notice( '%1$d before, %2$d after (%3$d updated, %4$d erased, %5$d skiped)',
-				/*1*/ $this->stats['before'],
-				/*2*/ $this->stats['after'],
-				/*3*/ $this->stats['updated'],
-				/*4*/ $this->stats['erased'],
-				/*5*/ $this->stats['skiped'],
-			);
+			$this->Factory->notice([
+				'=',
+				'In {count} playlists found {items} entries ({moved} moved, {removed} removed, {duped} dupes)',
+				'{before} before, {after} after ({updated} updated, {erased} erased, {skiped} skiped)',
+			],[
+				'{count}' => $this->stats['count'],
+				'{items}' => $this->stats['items'],
+				'{moved}' => $this->stats['moved'],
+				'{removed}' => $this->stats['removed'],
+				'{duped}' => $this->stats['duped'],
+				'{before}'  => $this->stats['before'],
+				'{after}'   => $this->stats['after'],
+				'{updated}' => $this->stats['updated'],
+				'{erased}'  => $this->stats['erased'],
+				'{skiped}'  => $this->stats['skiped'],
+			]);
 			/* @formatter:on */
 		}
 
@@ -409,7 +423,7 @@ EOT );
 			$Xml->formatOutput = true;
 			$Xml->load( $inputFile );
 			$filename = $input->getOption( 'no-backup' ) ? $inputFile : $Playlist->backupName( $inputFile );
-			$this->info( 'Save +pretty-xml "%s"', $filename );
+			$this->Factory->info( 'Save +pretty-xml "%s"', $filename );
 			file_put_contents( $filename, $Xml->saveXML() );
 		}
 
@@ -422,13 +436,13 @@ EOT );
 	 * @param array $item Playlist item
 	 * @return string|boolean
 	 */
-	protected function pathAbs( array $item, string $home )
+	protected function pathAbs( array $item, string $base )
 	{
 		if ( $item['path'] ) {
 			return $item['path']; // realpath(), see: Playlist->load()
 		}
 
-		$this->debug( 'Not found (#1): "%s" at "%s"', $item['orig'], $home );
+		$this->Factory->debug( 'Not found (#1): "{abs}" at "{base}"', [ '{abs}' => $item['orig'], '{base}' => $base ] );
 		return false;
 	}
 
@@ -447,7 +461,7 @@ EOT );
 			return $path;
 		}
 
-		$this->debug( 'Not found (#2): no path mapping for "%s"', $base );
+		$this->Factory->debug( 'Not found (#2): no path mapping for "%s"', $base );
 		return false;
 	}
 
@@ -468,7 +482,7 @@ EOT );
 			}
 		}
 
-		$this->debug( 'Not found (#3): no pattern mapping for "%s"', $item['orig'] );
+		$this->Factory->debug( 'Not found (#3): no pattern mapping for "%s"', $item['orig'] );
 		return false;
 	}
 
@@ -488,7 +502,7 @@ EOT );
 			return $path;
 		}
 
-		$this->debug( 'Not found (#4): not in Media folder "%s"', $path );
+		$this->Factory->debug( 'Not found (#4): not in Media folder "%s"', $path );
 		return false;
 	}
 
@@ -504,7 +518,7 @@ EOT );
 			return ucfirst( $input->getOption( 'action' ) );
 		}
 
-		$this->notice( 'Invalid "%s"', $item['orig'] );
+		$this->Factory->notice( 'Invalid "%s"', $item['orig'] );
 
 		/* @formatter:off */
 		$question = new ChoiceQuestion( 'Please select an action:', [
@@ -537,7 +551,7 @@ EOT );
 					return 'Skip';
 				}
 
-				$this->notice( 'Updated to "%s"', $path );
+				$this->Factory->notice( 'Updated to "%s"', $path );
 				break;
 
 			case 'Relocate':
@@ -556,8 +570,8 @@ EOT );
 
 				$this->dirMap[$base] = $path;
 				$path = "{$path}/{$item['name']}";
-				$this->debug( 'New path mapping "%s" -> "%s"', $base, $this->dirMap[$base] );
-				$this->notice( 'Relocated to "%s"', $path );
+				$this->Factory->debug( 'New path mapping "{dir}" -> "{map}"', [ '{dir}' => $base, '{map}' => $this->dirMap[$base] ] );
+				$this->Factory->notice( 'Relocated to "%s"', $path );
 				break;
 
 			case 'Rename':
@@ -570,7 +584,7 @@ EOT );
 					}
 
 					$name = $this->getRenamedItem( $pat, $sub, $item['name'] );
-					$path = "{$base}/{$name}";
+					$path = $base . '/' . $name;
 
 					if ( file_exists( $path ) ) {
 						break;
@@ -580,8 +594,8 @@ EOT );
 				}
 
 				$this->regMap[$pat] = $sub;
-				$this->debug( 'New pattern mapping "%s" -> "%s"', $pat, $sub );
-				$this->notice( 'Renamed to "%s"', $name );
+				$this->Factory->debug( 'New pattern mapping "{pat}" -> "{sub}"', [ '{pat}' => $pat, '{sub}' => $sub ] );
+				$this->Factory->notice( 'Renamed to "%s"', $name );
 				break;
 
 			default:

@@ -1,17 +1,13 @@
 <?php
 /*
  * This file is part of the orkan/winamp package.
- * Copyright (c) 2022-2024 Orkan <orkans+winamp@gmail.com>
+ * Copyright (c) 2022 Orkan <orkans+winamp@gmail.com>
  */
 namespace Orkan\Winamp;
 
-use Monolog\Formatter\LineFormatter;
-use Orkan\Logger;
-use Orkan\Utils;
-use Orkan\Winamp\Tools\Exporter;
 use Orkan\Winamp\Tools\M3UTagger;
 use Orkan\Winamp\Tools\Playlist;
-use Symfony\Bridge\Monolog\Handler\ConsoleHandler;
+use Orkan\Winamp\Tools\Winamp;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Output\ConsoleOutput;
@@ -29,12 +25,25 @@ class Factory extends \Orkan\Factory
 	 */
 	protected $Bar;
 
+	/* @formatter:off */
+
+	/**
+	 * Map verbosity levels: Symfony Console <==> Orkan\Logger console.
+	 * @see ConsoleOutput
+	 * @see \Orkan\Logger::addRecord() > cfg[log_verbose]
+	 */
+	const VERBOSITY = [
+		OutputInterface::VERBOSITY_QUIET        => 'ERROR',  //  16 => 400 -q
+		OutputInterface::VERBOSITY_NORMAL       => 'NOTICE', //  32 => 250
+		OutputInterface::VERBOSITY_VERBOSE      => 'INFO',   //  64 => 200 -v
+		OutputInterface::VERBOSITY_VERY_VERBOSE => 'DEBUG',  // 128 => 100 -vv
+		OutputInterface::VERBOSITY_DEBUG        => 'DEBUG',  // 256 => 100 -vvv
+	];
+	/* @formatter:on */
+
 	/*
 	 * Services:
 	 */
-	protected $Exporter;
-	protected $Utils;
-	protected $Logger;
 	protected $Output;
 
 	/**
@@ -42,13 +51,21 @@ class Factory extends \Orkan\Factory
 	 */
 	public function __construct( array $cfg = [] )
 	{
-		parent::__construct( $cfg );
-		$this->merge( $this->defaults() );
+		parent::__construct();
+		$this->merge( self::defaults(), true );
+		$this->merge( $cfg, true );
 
-		// High priority CMD args!
-		$usr = ( new ArgvInput() )->getParameterOption( [ '--user-cfg', '-u' ], false, true );
-		$usr = $usr ? require $usr : [];
-		$this->merge( $usr, true );
+		$Args = new ArgvInput();
+
+		/**
+		 * User supplied config.
+		 * Not useed in Orkan\Application's!
+		 * @see Tools\Exporter::__construct()
+		 */
+		if ( $usr = $Args->getParameterOption( [ '--user-cfg', '-u' ], false, true ) ) {
+			$this->merge( require $usr, true );
+			$this->cfg( 'cfg_user', realpath( $usr ) );
+		}
 	}
 
 	/**
@@ -57,19 +74,14 @@ class Factory extends \Orkan\Factory
 	protected function defaults()
 	{
 		/**
-		 * [cmd_title]
-		 * Default CMD window title
-		 * @see Factory::cmdTitle()
-		 *
 		 * [log_header]
 		 * Add extra header after Logger init
 		 *
-		 * [log_console]
-		 * Log to Console
-		 *
-		 * [log_console_verbosity]
-		 * Log to Console verbosity level
-		 * @see OutputInterface
+		 * [log_verbose]
+		 * Default Logger verbosity level
+		 * @see \Orkan\Logger::addRecord() > echo
+		 * The exact value of --verbose is aciqured in
+		 * @see \Orkan\Application::setVerbosity()
 		 *
 		 * [bar_default]
 		 * ProgressBar format
@@ -86,39 +98,16 @@ class Factory extends \Orkan\Factory
 		 *
 		 * @formatter:off */
 		return [
-			'cmd_title'             => 'CMD Factory',
-			'app_version'           => '5.3.1',
-			'log_header'            => true,
-			'log_console'           => true,
-			'log_console_verbosity' => OutputInterface::VERBOSITY_VERBOSE,
-			'bar_default'           => '[%bar%] %current%/%max% %message%',
-			'bar_loading'           => '- loading [%bar%] %current%/%max% %message%',
-			'bar_char'              => '|',
-			'bar_char_empty'        => '.',
-			'bar_usleep'            => getenv( 'APP_BAR_USLEEP' ) ?: 0,
+			'log_header'      => true,
+			'log_verbose'     => 'NOTICE',
+			'bar_verbose'     => OutputInterface::VERBOSITY_VERBOSE,
+			'bar_default'     => '[%bar%] %current%/%max% %message%',
+			'bar_loading'     => '- loading [%bar%] %current%/%max% %message%',
+			'bar_char'        => '|',
+			'bar_char_empty'  => '.',
+			'bar_usleep'      => getenv( 'APP_BAR_USLEEP' ) ?: 0,
 		];
 		/* @formatter:on */
-	}
-
-	/**
-	 * Update CMD window title.
-	 *
-	 * @param array  $tokens Array( [%token1%] => text1, [%token2%] => text2, ... )
-	 * @param string $format Eg. '%token1% - %token2% - %title%'
-	 */
-	public function cmdTitle( array $tokens = [], string $format = '%cmd_title%' ): void
-	{
-		$tokens['%cmd_title%'] = $this->get( 'cmd_title' );
-		cli_set_process_title( strtr( $format, $tokens ) );
-	}
-
-	/**
-	 * Slow down.
-	 */
-	public function sleep( string $key ): void
-	{
-		$ms = (int) $this->get( $key );
-		$ms && usleep( $ms );
 	}
 
 	/*
@@ -128,71 +117,20 @@ class Factory extends \Orkan\Factory
 	 */
 
 	/**
-	 * @return Exporter
-	 */
-	public function Exporter()
-	{
-		return $this->Exporter ?? $this->Exporter = new Exporter( $this );
-	}
-
-	/**
-	 * @return Utils
-	 */
-	public function Utils()
-	{
-		return $this->Utils ?? $this->Utils = new Utils();
-	}
-
-	/**
-	 * @return Logger
-	 */
-	public function Logger()
-	{
-		if ( !isset( $this->Logger ) ) {
-
-			// ---------------------------------------------------------------------------------------------------------
-			// File:
-			$Input = new ArgvInput();
-			if ( $Input->hasParameterOption( '--no-log', true ) ) {
-				$this->cfg( 'log_file', '' );
-			}
-
-			$this->Logger = new Logger( $this );
-
-			// ---------------------------------------------------------------------------------------------------------
-			if ( $this->get( 'log_console' ) ) {
-				/* @formatter:off */
-				$Handler = new ConsoleHandler( null, true, [
-					OutputInterface::VERBOSITY_QUIET        => Logger::ERROR,   // -q
-					OutputInterface::VERBOSITY_NORMAL       => Logger::NOTICE,  //
-					OutputInterface::VERBOSITY_VERBOSE      => Logger::INFO,    // -v
-					OutputInterface::VERBOSITY_VERY_VERBOSE => Logger::DEBUG,   // -vv
-					OutputInterface::VERBOSITY_DEBUG        => Logger::DEBUG,   // -vvv
-				]);
-				/* @formatter:on */
-				$Handler->setOutput( $this->Output() );
-				$Handler->setFormatter( new LineFormatter( "%message%\n" ) );
-				$this->Logger->Monolog()->pushHandler( $Handler );
-			}
-
-			// ---------------------------------------------------------------------------------------------------------
-			// Header:
-			if ( $this->get( 'log_header' ) ) {
-				$this->Logger->debug( '______________________' . Application::APP_NAME . '______________________' );
-				$this->Logger->debug( 'Command line: ' . $Input );
-				$this->Logger->debug( sprintf( 'CFG: [%s:%d] %s', __CLASS__, __LINE__, Utils::print_r( $this->cfg ) ) );
-			}
-		}
-
-		return $this->Logger;
-	}
-
-	/**
+	 * ConsoleOutput is used for displaying Symfony components only, ie. ProgressBar, Table, etc...
 	 * @return OutputInterface
 	 */
 	public function Output()
 	{
-		return $this->Output ?? $this->Output = new ConsoleOutput( $this->get( 'log_console_verbosity' ) );
+		if ( !isset( $this->Output ) ) {
+			// Match ConsoleOutput verbosity to Orkan\Logger
+			$verbosity = array_search( $this->get( 'log_verbose' ), static::VERBOSITY );
+			$this->cfg( 'out_verbose', $verbosity );
+
+			$this->Output = new ConsoleOutput( $verbosity );
+		}
+
+		return $this->Output;
 	}
 
 	/**
@@ -219,14 +157,22 @@ class Factory extends \Orkan\Factory
 	 */
 	public function barNew( int $steps = 10, string $format = 'bar_default' ): void
 	{
+		// Don't display empty Bar
 		if ( !$steps || defined( 'TESTING' ) ) {
-			return; // Don't display empty bar
+			return;
 		}
 
-		ProgressBar::setFormatDefinition( $format, $this->get( $format ) );
+		/**
+		 * Don't display Bar in less verbose modes
+		 * Output verbosity is mapped from cfg[log_verbosity]
+		 * @see Factory::Output()
+		 */
+		if ( $this->Output()->getVerbosity() < $this->get( 'bar_verbose' ) ) {
+			return;
+		}
 
 		$this->Bar = new ProgressBar( $this->Output(), $steps );
-		$this->Bar->setFormat( $format );
+		$this->Bar->setFormat( $this->get( $format ) );
 		$this->Bar->setBarCharacter( $this->get( 'bar_char' ) );
 		$this->Bar->setProgressCharacter( $this->get( 'bar_char' ) );
 		$this->Bar->setEmptyBarCharacter( $this->get( 'bar_char_empty' ) );
@@ -293,5 +239,13 @@ class Factory extends \Orkan\Factory
 	public function Playlist( array $cfg = [] )
 	{
 		return new Playlist( $this, $cfg );
+	}
+
+	/**
+	 * @return Winamp
+	 */
+	public function Winamp()
+	{
+		return new Winamp();
 	}
 }

@@ -1,2 +1,0 @@
-Command/RebuildCommandFix01Test.php
-Tools/ExporterFix01Test.php
