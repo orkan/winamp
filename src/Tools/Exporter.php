@@ -16,8 +16,8 @@ use Orkan\Winamp\Factory;
 class Exporter extends \Orkan\Application
 {
 	const APP_NAME = 'Winamp Export Media Library';
-	const APP_VERSION = '6.0.0';
-	const APP_DATE = 'Sat, 06 Apr 2024 14:58:53 +02:00';
+	const APP_VERSION = '6.0.1';
+	const APP_DATE = 'Sat, 06 Apr 2024 15:44:19 +02:00';
 
 	/**
 	 * @link https://patorjk.com/software/taag/#p=display&v=0&f=Ivrit&t=CLI%20App
@@ -677,8 +677,8 @@ class Exporter extends \Orkan\Application
 		// Summary:
 		$invalid && $this->Logger->info( "- invalid {$invalid} files" );
 		$missing && $this->Logger->info( "- missing {$missing} files" );
-		$deleted && $this->Logger->info( "- deleted {$deleted} files" );
 		$updated && $this->Logger->info( "- updated {$updated} files" );
+		$deleted && $this->Logger->info( "- deleted {$deleted} files" );
 
 		if ( $items ) {
 			$this->stats['items'] -= $items; // might be 0 items!
