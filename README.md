@@ -1,4 +1,4 @@
-# Winamp Media Library CLI tools `v5.4.0`
+# Winamp Media Library CLI tools `v6.0.0`
 Fixes invalid entries in M3U playlists. 
 
 Every time you change the location of your media files, the playlists
@@ -71,4 +71,4 @@ PHP  ^7.4
 MIT
 
 ### Updated
-Mon, 25 Mar 2024 16:42:00 +01:00
+Sat, 06 Apr 2024 14:58:53 +02:00

@@ -55,16 +55,18 @@ class Factory extends \Orkan\Factory
 		$this->merge( self::defaults(), true );
 		$this->merge( $cfg, true );
 
-		$Args = new ArgvInput();
-
 		/**
-		 * User supplied config.
-		 * Not useed in Orkan\Application's!
-		 * @see Tools\Exporter::__construct()
+		 * User config.
+		 *
+		 * CAUTION:
+		 * The [-c arg] is used to satisfy both apps: Winamp\Application (Symfony) and Tools\Exporter (Orkan)
+		 * @see Tools\Exporter::defaults(app_opts)       <-- Orkan\Application
+		 * @see Application::getDefaultInputDefinition() <-- Symfony\Application
 		 */
-		if ( $usr = $Args->getParameterOption( [ '--user-cfg', '-u' ], false, true ) ) {
-			$this->merge( require $usr, true );
-			$this->cfg( 'cfg_user', realpath( $usr ) );
+		$Args = new ArgvInput();
+		if ( $cfg = $Args->getParameterOption( [ '--user-cfg', '-c' ], false, true ) ) {
+			$this->merge( require $cfg, true );
+			$this->cfg( 'cfg_user', realpath( $cfg ) );
 		}
 	}
 

@@ -80,7 +80,7 @@ class Playlist
 	public function __construct( Factory $Factory, array $cfg = [] )
 	{
 		$this->cfg = $cfg;
-		$this->merge( $this->defaults() );
+		$this->merge( self::defaults() );
 
 		$this->Factory = $Factory;
 		$this->Utils = $this->Factory->Utils();
@@ -89,7 +89,7 @@ class Playlist
 	/**
 	 * Get defaults.
 	 */
-	protected function defaults(): array
+	private function defaults(): array
 	{
 		$file = $this->get( 'file' );
 

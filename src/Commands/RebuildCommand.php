@@ -422,7 +422,13 @@ class RebuildCommand extends Command
 			$Xml->preserveWhiteSpace = false;
 			$Xml->formatOutput = true;
 			$Xml->load( $inputFile );
+
 			$filename = $input->getOption( 'no-backup' ) ? $inputFile : $Playlist->backupName( $inputFile );
+			$this->Factory->info( 'Save +pretty-xml "%s"', $filename );
+			file_put_contents( $filename, $Xml->saveXML() );
+
+			$Xml->encoding = 'UTF-8';
+			$filename = str_replace( '.xml', '.utf8.xml', $filename );
 			$this->Factory->info( 'Save +pretty-xml "%s"', $filename );
 			file_put_contents( $filename, $Xml->saveXML() );
 		}

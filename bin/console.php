@@ -13,32 +13,13 @@ use Orkan\Winamp\Factory;
 use Orkan\Winamp\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 
-if ( !in_array( PHP_SAPI, [ 'cli', 'phpdbg', 'embed' ], true ) ) {
-	fwrite( STDERR, sprintf( "Warning:\nThe console should be invoked via the CLI version of PHP, not the %s SAPI\n\n", PHP_SAPI ) );
-}
-
-foreach ( [ __DIR__ . '/../../../autoload.php', __DIR__ . '/../../vendor/autoload.php', __DIR__ . '/vendor/autoload.php' ] as $file ) {
-	if ( file_exists( $file ) ) {
-		define( 'WINAMP_COMPOSER_INSTALL', $file );
-		break;
-	}
-}
-
-if ( !defined( 'WINAMP_COMPOSER_INSTALL' ) ) {
-	fwrite( STDERR, "You need to set up the project dependencies using Composer:\n\n\tcomposer install orkan/winamp\n\n" );
-	die( 1 );
-}
-
-set_time_limit( 0 );
-require WINAMP_COMPOSER_INSTALL;
+require $GLOBALS['_composer_autoload_path'];
 
 $Input = new ArgvInput();
 if ( $Input->hasParameterOption( '--no-debug', true ) ) {
 	putenv( 'APP_DEBUG=' . $_ENV['APP_DEBUG'] = '0' );
 }
 define( 'DEBUG', (bool) getenv( 'APP_DEBUG' ) );
-
-unset( $file );
 unset( $Input );
 
 // ---------------------------------------------------------------------------------------------------------------------

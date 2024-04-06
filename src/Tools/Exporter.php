@@ -16,8 +16,8 @@ use Orkan\Winamp\Factory;
 class Exporter extends \Orkan\Application
 {
 	const APP_NAME = 'Winamp Export Media Library';
-	const APP_VERSION = '5.4.0';
-	const APP_DATE = 'Mon, 25 Mar 2024 16:42:00 +01:00';
+	const APP_VERSION = '6.0.0';
+	const APP_DATE = 'Sat, 06 Apr 2024 14:58:53 +02:00';
 
 	/**
 	 * @link https://patorjk.com/software/taag/#p=display&v=0&f=Ivrit&t=CLI%20App
@@ -56,6 +56,12 @@ class Exporter extends \Orkan\Application
 	 */
 	protected $PlaylistAll;
 
+	/**
+	 * Progress start time.
+	 * @var float
+	 */
+	protected $start;
+
 	/* @formatter:off */
 
 	/**
@@ -88,8 +94,8 @@ class Exporter extends \Orkan\Application
 	 *
 	 * @var array
 	 */
-	protected $progress = [
-		'track' => 0, // current track
+	protected $stats = [
+		'item'  => 0, // current track
 		'items' => 0, // total items
 		'bytes' => 0, // total bytes
 		'asize' => 0, // average track size
@@ -106,22 +112,18 @@ class Exporter extends \Orkan\Application
 		$this->Factory = $Factory->merge( self::defaults() );
 		parent::__construct( $Factory );
 
-		/**
-		 * Load separate user config via [-- arg].
-		 *
-		 * CAUTION:
-		 * Winamp\Factory is loading config via [-u arg] but Winamp\Exporter doesn't define -u switch,
-		 * @see \Orkan\Application::ARGUMENTS
-		 * leading PHP::getopt() to stop parsing args when an unknown switch is found...
-		 * @see \Orkan\Application::getArg()
-		 */
-		$this->loadUserConfig();
+	/**
+	 * WARNING:
+	 * User config loaded from:
+	 * @see \Orkan\Winamp\Factory::__construct()
+	 $this->loadUserConfig( 'config' );
+	 */
 	}
 
 	/**
 	 * Get defaults.
 	 */
-	protected function defaults(): array
+	private function defaults(): array
 	{
 		/**
 		 * [cmd_title]
@@ -181,19 +183,19 @@ class Exporter extends \Orkan\Application
 		 * Extra playlists to add AS-IS without limit restrictions (unconditionally)
 		 * Array( "Title 1", "Title 2", ... )
 		 *
-		 * [garbage_collect]
-		 * Garbage collect: Free up memory once is no longer used
-		 *
 		 * @formatter:off */
 		return [
 			'cmd_title'       => 'Winamp Export',
-			'app_usage'       => 'export.php [OPTIONS] [--] [config.php]',
+			'app_usage'       => 'export.php [options]',
+			'app_opts'    => [
+				'config' => [ 'short' => 'c:', 'long' => 'config:', 'desc' => 'Configuration file' ],
+			],
 			'log_reset'       => true,
 			'winamp_xml'      => 'playlists.xml',
 			'manifest'        => 'export.json',
 			'playlist_all'    => 'Export',
 			'auto_dirs'       => false,
-			'total_size'      => '',
+			'total_bytes'     => '',
 			'total_size_str'  => '',
 			'winamp_dir'      => '',
 			'output_dir'      => '',
@@ -204,119 +206,10 @@ class Exporter extends \Orkan\Application
 			'extra'           => [],
 			'bar_loading'     => '- loading [%bar%] %current%/%max% %message%',
 			'bar_adding'      => '- adding [%bar%] %current%/%max% %message%',
-			'bar_analyzing'   => '- analyzing [%bar%] %current%/%max% %message%',
+			'bar_analyzing'   => '- analyze [%bar%] %current%/%max% %message%',
 			'bar_exporting'   => '- copying [%bar%] %current%/%max% %message%',
-			'garbage_collect' => getenv( 'APP_GC' ) ?: false,
 		];
 		/* @formatter:on */
-	}
-
-	/**
-	 * Import and create config path.
-	 *
-	 * @param string $type cfg[{type}_dir] holding initial path
-	 * @param string $name Path description eg. Playlists, Music, etc...
-	 */
-	protected function dirPrepare( string $type, string $name ): void
-	{
-		$key = "{$type}_dir";
-		$msg = "{$name} output";
-		$loop = 0;
-
-		do {
-			$dir = $this->importPath( $key, "{$msg} dir" );
-
-			if ( !is_dir( $dir ) ) {
-				// Path must exists
-				if ( !$this->Factory->get( 'auto_dirs' ) ) {
-					echo "Error: $msg dir not found!\n";
-					if ( !$loop ) {
-						echo "$dir\n";
-					}
-					$dir = '';
-				}
-				// Create full directory path if not exist
-				elseif ( !$this->Utils->dirClear( $dir ) ) {
-					throw new \RuntimeException( sprintf( 'Error creating cfg[%s] path: "%s"', $key, $dir ) );
-				}
-			}
-			$loop++;
-		}
-		while ( !$dir );
-
-		$this->Factory->cfg( $key, $dir );
-		$this->Factory->notice( '{name} set: "{path}"', [ '{name}' => $msg, '{path}' => $dir ] );
-	}
-
-	/**
-	 * Help: Import path string.
-	 *
-	 * @param string $key    Config[key] holding initial path
-	 * @param string $prompt Prompt message
-	 * @return int Fixed path string
-	 */
-	protected function importPath( string $key, string $prompt = 'Import' ): string
-	{
-		// Initial path. Prefix with '?' for user prompt
-		$path = $this->Factory->get( $key );
-
-		if ( empty( $path ) || '?' === $path[0] ) {
-
-			if ( defined( 'TESTING' ) ) {
-				throw new \InvalidArgumentException( "Cannot prompt user input in tests! Use cfg[$key]" );
-			}
-
-			$path = ltrim( $path, '?' );
-			do {
-				$get = $this->Utils->prompt( sprintf( '%s: %s', $prompt, $path ), false );
-				$get = $get ?: $path;
-				if ( !$get ) {
-					echo "Empty string not allowed!\n";
-				}
-			}
-			while ( !$get );
-			$path = $get;
-		}
-
-		return $this->Utils->pathFix( $path );
-	}
-
-	/**
-	 * Help: Import bytes as int.
-	 *
-	 * @param string $key    Config[key] holding bytes to update
-	 * @param string $prompt Prompt message
-	 * @return int Bytes number
-	 */
-	protected function importBytes( $key, string $prompt = 'Import' ): int
-	{
-		// Initial bytes. Prefix with '?' for user prompt
-		$bytes = $this->Factory->get( $key );
-
-		if ( is_numeric( $bytes ) ) {
-			return $bytes;
-		}
-
-		if ( empty( $bytes ) || '?' === $bytes[0] ) {
-
-			if ( defined( 'TESTING' ) ) {
-				throw new \InvalidArgumentException( "Cannot prompt user input in tests! Use cfg[$key]" );
-			}
-
-			$bytes = ltrim( $bytes, '?' );
-			do {
-				$get = $this->Utils->prompt( sprintf( '%s: %s', $prompt, $bytes ), false );
-				$get = '' === $get ? $bytes : $get;
-				if ( !preg_match( '/^([\d.]+)(\s)?([BKMGTPE]?)(B)?$/i', $get ) ) {
-					echo "Invalid entry! Use integer or size string: 100M, 3.4G, etc...\n";
-					$get = '';
-				}
-			}
-			while ( '' === $get );
-			$bytes = $get;
-		}
-
-		return $this->Utils->byteNumber( $bytes );
 	}
 
 	/**
@@ -324,7 +217,7 @@ class Exporter extends \Orkan\Application
 	 */
 	public function stats(): array
 	{
-		return $this->progress;
+		return $this->stats;
 	}
 
 	/**
@@ -332,8 +225,6 @@ class Exporter extends \Orkan\Application
 	 */
 	protected function progress(): array
 	{
-		static $start;
-
 		/* @formatter:off */
 		$out = [
 			'byte_done' => 0,   // elapsed: bytes
@@ -347,29 +238,23 @@ class Exporter extends \Orkan\Application
 		/* @formatter:on */
 
 		// No tracks loaded yet
-		if ( !$this->progress['items'] ) {
+		if ( !$this->stats['items'] ) {
 			return $out;
 		}
 
-		// Start?
-		if ( 0 === $this->progress['track'] ) {
-			$start = $this->Utils->exectime();
-			$this->progress['asize'] = $this->progress['bytes'] / $this->progress['items'];
-		}
+		// Dont overflow!
+		$this->stats['item'] = min( $this->stats['item'] + 1, $this->stats['items'] );
 
-		$this->progress['track']++;
-
-		$out['byte_done'] = $this->progress['asize'] * $this->progress['track'];
-		$out['cent_done'] = 100 / $this->progress['bytes'] * $out['byte_done'];
+		$out['byte_done'] = $this->stats['asize'] * $this->stats['item'];
+		$out['cent_done'] = 100 / $this->stats['bytes'] * $out['byte_done'];
 		$out['cent_left'] = 100 - $out['cent_done'];
 
-		$out['time_exec'] = $this->Utils->exectime( $start );
+		$out['time_exec'] = $this->Utils->exectime( $this->start );
 		$out['time_done'] = $out['time_exec'] / $out['cent_done'];
 		$out['time_left'] = $out['time_done'] * $out['cent_left'];
 
 		$out['speed_bps'] = $out['byte_done'] / $out['time_exec'];
 
-		DEBUG && $this->Logger->debug( '$out: ' . $this->Utils->print_r( $out ) );
 		return $out;
 	}
 
@@ -389,7 +274,7 @@ class Exporter extends \Orkan\Application
 	protected function playlist( array $pl ): ?Playlist
 	{
 		$pl = $this->plNormalize( $pl );
-		$total = $pl['istotal'] ? $this->Factory->get( 'total_size' ) : 0;
+		$total = $pl['istotal'] ? $this->Factory->get( 'total_bytes' ) : 0;
 
 		$m3u = $this->Factory->get( 'winamp_dir' ) . '/' . $pl['file'];
 		$exp = $this->Factory->get( 'export_dir' );
@@ -407,11 +292,11 @@ class Exporter extends \Orkan\Application
 		// -------------------------------------------------------------------------------------------------------------
 		// Total size 1/2:
 		// Don't load another Playlist if there's no space left in given total limit
-		$bytes = $this->progress['bytes'] + $this->progress['asize'];
+		$bytes = $this->stats['bytes'] + $this->stats['asize'];
 		if ( $total && $bytes > $total ) {
 			/* @formatter:off */
 			$this->Factory->info( '- skipped! Less than {bytes} left (total size limit: {total})', [
-				'{bytes}' => $this->Utils->byteString( $this->progress['asize'] ),
+				'{bytes}' => $this->Utils->byteString( $this->stats['asize'] ),
 				'{total}' => $this->Utils->byteString( $total ),
 			]);
 			/* @formatter:on */
@@ -467,7 +352,7 @@ class Exporter extends \Orkan\Application
 			// ---------------------------------------------------------------------------------------------------------
 			// Is unique track? Same track from different playlists should NOT increase total size!
 			if ( isset( $this->PlaylistAll->id2bytes[$itemId] ) ) {
-				$this->progress['dupes']++;
+				$this->stats['dupes']++;
 				$done++;
 				continue;
 			}
@@ -480,7 +365,7 @@ class Exporter extends \Orkan\Application
 
 			// ---------------------------------------------------------------------------------------------------------
 			// Total size limit?
-			$bytes = $this->progress['bytes'] + $stat['size'];
+			$bytes = $this->stats['bytes'] + $stat['size'];
 			if ( $total && $bytes > $total ) {
 				$Playlist->reduce( $done );
 				$this->Factory->barDel();
@@ -508,19 +393,19 @@ class Exporter extends \Orkan\Application
 
 			// ---------------------------------------------------------------------------------------------------------
 			// Summary:
-			$this->progress['bytes'] = $bytes;
-			$this->progress['items']++;
+			$this->stats['bytes'] = $bytes;
+			$this->stats['items']++;
 			$done++;
 		}
 
 		$this->Factory->barDel();
-		$this->progress['asize'] = $this->progress['bytes'] / $this->progress['items'];
+		$this->statsRebuild();
 
 		/* @formatter:off */
 		$this->Factory->notice( 'Tracks: {items} | {bytes} | ~{asize}', [
-			'{items}' => $this->progress['items'],
-			'{bytes}' => $this->Utils->byteString( $this->progress['bytes'] ),
-			'{asize}' => $this->Utils->byteString( $this->progress['asize'] ),
+			'{items}' => $this->stats['items'],
+			'{bytes}' => $this->Utils->byteString( $this->stats['bytes'] ),
+			'{asize}' => $this->Utils->byteString( $this->stats['asize'] ),
 		]);
 		/* @formatter:on */
 
@@ -568,15 +453,15 @@ class Exporter extends \Orkan\Application
 		// Veriffy
 		$items = count( $this->PlaylistAll->id2bytes );
 		$bytes = array_sum( $this->PlaylistAll->id2bytes );
-		if ( $items !== $this->progress['items'] || $bytes !== $this->progress['bytes'] ) {
+		if ( $items !== $this->stats['items'] || $bytes !== $this->stats['bytes'] ) {
 			/* @formatter:off */
 			throw new \RuntimeException( sprintf( "Data integrity check failed!\n" .
 				'PlaylistAll->items: %1$s  <->  progress->items: %3$s' . PHP_EOL .
 				'PlaylistAll->bytes: %2$s  <->  progress->bytes: %4$s' . PHP_EOL ,
 				/*1*/ $items,
 				/*2*/ $bytes,
-				/*3*/ $this->progress['items'],
-				/*4*/ $this->progress['bytes'],
+				/*3*/ $this->stats['items'],
+				/*4*/ $this->stats['bytes'],
 			) );
 			/* @formatter:on */
 		}
@@ -668,7 +553,17 @@ class Exporter extends \Orkan\Application
 			throw new \RuntimeException( sprintf( 'Missing manifest [src] file: "%s"', $src ) );
 		}
 
-		$this->manifest[$type][crc32( $dst )] = $out;
+		$id = $this->manifestId( $out['dst'] );
+		$this->manifest[$type][$id] = $out;
+	}
+
+	/**
+	 * Compute manifest item id.
+	 * @param string $dst Destination file
+	 */
+	protected function manifestId( string $dst ): int
+	{
+		return crc32( $dst );
 	}
 
 	/**
@@ -678,16 +573,19 @@ class Exporter extends \Orkan\Application
 	 * modification time is less than 10s diffrent: [src] <=10s=> [dst].
 	 * In all other cases unlink old files and orphans that are not going to be exported again.
 	 *
+	 * For playlists we dont know new filenames before they are actually created.
+	 * So unlink everything from old manifest and then save new filenames in new manifest file.
+	 *
 	 * @param string $type Config[{type}_dir], eg. output|export
 	 */
 	protected function manifestUnlink( string $type ): bool
 	{
 		$dir = $this->Factory->get( "{$type}_dir" );
-
 		$this->Factory->notice( 'Sync: "%s"', $dir );
 
+		// No manifest found? Clear output dir to get rid of all untracked files
 		if ( !is_file( $file = $dir . '/' . $this->Factory->get( 'manifest' ) ) ) {
-			$get = $this->Utils->prompt( 'Manifest file not found! Clear export dir? y/[n]: ', false );
+			$get = $this->Utils->prompt( 'Manifest file not found! Clear export dir? y/[n]: ', '', 'N' );
 			if ( 'Y' === strtoupper( $get ) ) {
 				$this->Logger->notice( '- clearing export dir...' );
 				$this->Utils->dirClear( $dir );
@@ -695,64 +593,76 @@ class Exporter extends \Orkan\Application
 			return false;
 		}
 
+		// Collect extra data
+		if ( DEBUG ) {
+			$this->stats[$type]['invalid'] = [];
+			$this->stats[$type]['missing'] = [];
+			$this->stats[$type]['updated'] = [];
+			$this->stats[$type]['deleted'] = [];
+		}
+
+		// -------------------------------------------------------------------------------------------------------------
+		// Check old manifest:
 		$manifest = json_decode( file_get_contents( $file ), true );
 
-		// For playlists we dont know new filenames before they are actually saved.
-		// So unlink everything now from old manifest [dst] and later save new filenames in new manifest file.
-		$new = &$this->manifest[$type];
-
-		$bytes = $items = $orphaned = $deleted = 0;
+		$bytes = $items = $invalid = $missing = $updated = $deleted = 0;
 		$this->Factory->barNew( count( $manifest ), 'bar_analyzing' );
 
 		foreach ( $manifest as $id => $old ) {
-			$old['name'] = basename( $old['dst'] );
-			$this->Factory->barInc( $old['name'] );
-
 			$size = 0;
-			$unlink = true;
-			$newSrc = $new[$id]['src'] ?? '';
-			$newDst = $new[$id]['dst'] ?? '';
-			$oldDst = basename( dirname( $old['dst'] ) ) . '/' . $old['name'];
+			$newSrc = $this->manifest[$type][$id]['src'] ?? null;
+			$newDst = $this->manifest[$type][$id]['dst'] ?? null;
+			$oldDst = $old['dst'];
 
-			// Shouldn't happen, but...
-			if ( $newDst && $newDst !== $old['dst'] ) {
-				/* @formatter:off */
-				$this->Factory->warning( 'Manifest [Id:{id}] mismatch! old [dst:"{old}"] !== new [dst:"{new}"]', [
-					'{id}'  => $id,
-					'{old}' => $old['dst'],
-					'{new}' => $newDst,
-				]);
-				/* @formatter:on */
+			$this->Factory->barInc( basename( dirname( $oldDst ) ) . '/' . basename( $oldDst ) );
+
+			// Check manifest file integrity
+			if ( $newDst && $id !== $this->manifestId( $oldDst ) ) {
+				$unlink = true;
+				$this->Factory->warning( 'Invalid [dst:{dst}, id:{id}]', [ '{id}' => $id, '{dst}' => $oldDst ] );
+				DEBUG && $this->stats[$type]['invalid'][] = $oldDst;
 			}
-			// Do we have a src file? Playlists: no (auto-generated), Music: yes
+			// Playlists: alwasys delete (no src, auto-generated)
+			// Music:     keep only if [src] exists and was not changed
 			elseif ( $newSrc && is_file( $newSrc ) && is_file( $newDst ) ) {
 				$statSrc = stat( $newSrc );
 				$statDst = stat( $newDst );
 				$unlink = false;
 				$unlink |= $statSrc['size'] !== $statDst['size'];
 				$unlink |= abs( $statSrc['mtime'] - $statDst['mtime'] ) > 10; // allow 10s shift @see touch(mtime)
+				$unlink && $updated++;
 				$size = $statDst['size'];
-
 				/* @formatter:off */
-				$this->Factory->debug( '{action} [Id:{id}] "{dst}" [size:{srcB}/{dstB}, mtime:{srcT}/{dstT}]', [
-					'{action}' => $unlink ? 'Replace' : 'Keep',
-					'{id}'     => $id,
-					'{dst}'    => $oldDst,
-					'{srcB}'   => $statSrc['size'],
-					'{dstB}'   => $statDst['size'],
-					'{srcT}'   => $statSrc['mtime'],
-					'{dstT}'   => $statDst['mtime'],
+				DEBUG && $unlink && $this->Factory->debug(
+					'{action} [dst:{dst}, size:{srcB}/{dstB}, mtime:{srcT}/{dstT}, id:{id}]', [
+						'{id}'     => $id,
+						'{action}' => $unlink ? 'Update' : 'Keep',
+						'{dst}'    => $oldDst,
+						'{srcB}'   => $statSrc['size'],
+						'{dstB}'   => $statDst['size'],
+						'{srcT}'   => $statSrc['mtime'],
+						'{dstT}'   => $statDst['mtime'],
 				]);
-				/* @formatter:on */
+				/* @formatter:off */
+				DEBUG && $unlink && $this->stats[$type]['updated'][] = $oldDst;
 			}
-			elseif ( $old['dst'] && !$newDst ) {
-				$orphaned++;
-				$this->Factory->debug( 'Orphaned [Id:{id}] "{path}"', [ '{id}' => $id, '{path}' => $oldDst ] );
+			// Previously exported file is missing from new manifest
+			elseif ( !$newDst && $oldDst ) {
+				$unlink = true;
+				$missing++;
+				DEBUG && $this->Factory->debug( 'Missing [dst:{dst}, id:{id}]', [ '{id}' => $id, '{dst}' => $oldDst ] );
+				DEBUG && $this->stats[$type]['missing'][] = $oldDst;
+			}
+			// Default: always unlink if [dst] exists!
+			else {
+				$unlink = true;
 			}
 
 			// Delete to allow copy new file
-			if ( $unlink && @unlink( $old['dst'] ) ) {
+			if ( $unlink && @unlink( $oldDst ) ) {
 				$deleted++;
+				DEBUG && $this->Factory->debug( 'Delete [dst:{dst}, id:{id}]', [ '{id}' => $id, '{dst}' => $oldDst ] );
+				DEBUG && $this->stats[$type]['deleted'][] = $oldDst;
 			}
 			// File won't be copied over. Reduce totals!
 			elseif ( $size ) {
@@ -763,12 +673,18 @@ class Exporter extends \Orkan\Application
 
 		$this->Factory->barDel();
 
+		// -------------------------------------------------------------------------------------------------------------
 		// Summary:
-		$deleted && $this->Logger->notice( "- deleted {$deleted} previously exported files ({$orphaned} orphaned)" );
+		$invalid && $this->Logger->info( "- invalid {$invalid} files" );
+		$missing && $this->Logger->info( "- missing {$missing} files" );
+		$deleted && $this->Logger->info( "- deleted {$deleted} files" );
+		$updated && $this->Logger->info( "- updated {$updated} files" );
 
 		if ( $items ) {
-			$this->progress['bytes'] -= $bytes;
-			$this->progress['items'] -= $items; // might be 0 items!
+			$this->stats['items'] -= $items; // might be 0 items!
+			$this->stats['bytes'] -= $bytes;
+			$this->statsRebuild();
+
 			/* @formatter:off */
 			$this->Factory->info( '- saved {bytes} by not exporting {items} matched files.', [
 				'{bytes}' => $this->Utils->byteString( $bytes ),
@@ -790,20 +706,11 @@ class Exporter extends \Orkan\Application
 	}
 
 	/**
-	 * Import, save byte size.
-	 *
-	 * @param string $name  Config[name] holding bytes to update
-	 * @param string $label Type of Config[name]
+	 * Rebuild stats.
 	 */
-	protected function setBytes( string $name, string $label ): void
+	protected function statsRebuild(): void
 	{
-		$config = "{$name}_str";
-		$prompt = sprintf( '%s size', $label );
-		$total = $this->importBytes( $name, "Set {$prompt} (0 - unlimited)" );
-
-		$this->Factory->cfg( $name, $total );
-		$this->Factory->cfg( $config, $total ? $this->Utils->byteString( $total ) : 'no limit' );
-		$this->Factory->notice( '{name} set: "{path}"', [ '{name}' => $prompt, '{path}' => $this->Factory->get( $config ) ] );
+		$this->stats['asize'] = $this->stats['items'] ? $this->stats['bytes'] / $this->stats['items'] : 0;
 	}
 
 	/**
@@ -813,6 +720,11 @@ class Exporter extends \Orkan\Application
 	{
 		parent::run();
 
+		if ( isset( $this->start ) ) {
+			throw new \RuntimeException( 'Already launched!' );
+		}
+
+		$this->start = $this->Utils->exectime();
 		$this->isExport = (bool) $this->Factory->get( 'export_dir' );
 
 		$this->PlaylistAll = $this->Factory->Playlist(); // dont link with file yet!
@@ -825,9 +737,7 @@ class Exporter extends \Orkan\Application
 		}
 
 		// Config
-		$this->setBytes( 'total_size', 'Total' );
-		$this->dirPrepare( 'output', 'Playlists' );
-		$this->isExport && $this->dirPrepare( 'export', 'Music' );
+		$this->configure();
 
 		// Load tracks
 		$this->playlistsLoad();
@@ -849,6 +759,28 @@ class Exporter extends \Orkan\Application
 	}
 
 	/**
+	 * Verify (prompt) user config.
+	 */
+	protected function configure(): void
+	{
+		$Prompt = $this->Factory->Prompt();
+
+		$total = $Prompt->importBytes( 'total_bytes', 'Total size (0 - unlimited)' );
+		$this->Factory->cfg( 'total_bytes_str', $total ? $this->Utils->byteString( $total ) : 'no limit' );
+		$this->Logger->info( 'Total size: ' . $this->Factory->get( 'total_bytes_str' ) );
+
+		$dirs = [];
+		$dirs[] = [ 'output_dir', 'Playlists dir' ];
+		$this->isExport && $dirs[] = [ 'export_dir', 'Music dir' ];
+		foreach ( $dirs as $v ) {
+			$Prompt->importPath( $v[0], $v[1], $this->Factory->get( 'auto_dirs' ) );
+		}
+		foreach ( $dirs as $v ) {
+			$this->Logger->info( $v[1] . ': ' . $this->Factory->get( $v[0] ) );
+		}
+	}
+
+	/**
 	 * Show "export.m3u8" summary.
 	 *
 	 * @see Exporter::$PlaylistAll
@@ -861,27 +793,15 @@ class Exporter extends \Orkan\Application
 			'Tracks: {items} ({dupes} dupes) | {bytes} | ~{asize}',
 			],[
 			'{name}' => $this->PlaylistAll->pl['name'],
-			'{items}' => $this->progress['items'],
-			'{bytes}' => $this->Utils->byteString( $this->progress['bytes'] ),
-			'{asize}' => $this->Utils->byteString( $this->progress['asize'] ),
-			'{dupes}' => $this->progress['dupes'],
+			'{items}' => $this->stats['items'],
+			'{bytes}' => $this->Utils->byteString( $this->stats['bytes'] ),
+			'{asize}' => $this->Utils->byteString( $this->stats['asize'] ),
+			'{dupes}' => $this->stats['dupes'],
 		]);
 		/* @formatter:on */
 
 		// Release memory
-		$this->garbage( $this->PlaylistAll->id2bytes );
-	}
-
-	/**
-	 * Memory saver.
-	 */
-	protected function garbage( &$item ): void
-	{
-		if ( $this->Factory->get( 'garbage_collect' ) ) {
-			$this->Factory->debug( $this->Utils->phpMemoryMax(), 1 );
-			$item = null;
-			$this->Factory->debug( $this->Utils->phpMemoryMax(), 1 );
-		}
+		$this->gc( $this->PlaylistAll->id2bytes );
 	}
 
 	/**
@@ -907,7 +827,7 @@ class Exporter extends \Orkan\Application
 		$this->manifestWrite( 'output' );
 
 		// Release memory
-		$this->garbage( $this->playlists );
+		$this->gc( $this->playlists );
 	}
 
 	/**
@@ -955,13 +875,13 @@ class Exporter extends \Orkan\Application
 		$this->manifestWrite( 'export' );
 
 		/* @formatter:off */
-		$this->Factory->notice( 'Sync: {items} tracks | {bytes}', [
-			'{items}' => $this->progress['items'],
-			'{bytes}' => $this->Utils->byteString( $this->progress['bytes'] ),
+		$this->Factory->notice( 'Copy: {items} tracks | {bytes}', [
+			'{items}' => $this->stats['items'],
+			'{bytes}' => $this->Utils->byteString( $this->stats['bytes'] ),
 		]);
 		/* @formatter:on */
 
-		$this->Factory->barNew( $this->progress['items'], 'bar_exporting' );
+		$this->Factory->barNew( $this->stats['items'], 'bar_exporting' );
 
 		foreach ( $this->manifest['export'] as $new ) {
 			// Don't replace existing files left (matched) by manifestUnlink()

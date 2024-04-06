@@ -15,8 +15,8 @@ use Symfony\Component\Console\Input\InputOption;
 class Application extends \Symfony\Component\Console\Application
 {
 	const APP_NAME = 'Winamp Media Library CLI tools by Orkan';
-	const APP_VERSION = '5.4.0';
-	const RELEASE_DATE = 'Mon, 25 Mar 2024 16:42:00 +01:00';
+	const APP_VERSION = '6.0.0';
+	const RELEASE_DATE = 'Sat, 06 Apr 2024 14:58:53 +02:00';
 
 	/**
 	 * @link https://patorjk.com/software/taag/#p=display&v=0&f=Graffiti&t=Winamp
@@ -40,7 +40,7 @@ class Application extends \Symfony\Component\Console\Application
 		parent::__construct( self::APP_NAME, self::APP_VERSION );
 
 		$this->Factory = $Factory;
-		$this->Factory->merge( $this->defaults() );
+		$this->Factory->merge( self::defaults() );
 	}
 
 	private function defaults(): array
@@ -65,8 +65,8 @@ class Application extends \Symfony\Component\Console\Application
 
 		/* @formatter:off */
 		$Definition->addOptions( [
-			new InputOption( 'user-cfg' ,  'u', InputOption::VALUE_REQUIRED, 'User config (ie. logger settings)', false ),
-			new InputOption( 'code-page',  'c', InputOption::VALUE_REQUIRED, 'M3U files encoding', $this->Factory->cfg( 'code_page' ) ),
+			new InputOption( 'user-cfg' ,  'c', InputOption::VALUE_REQUIRED, 'User config (ie. logger settings)', false ),
+			new InputOption( 'code-page',  'p', InputOption::VALUE_REQUIRED, 'M3U files encoding', $this->Factory->get( 'code_page' ) ),
 			new InputOption( 'dry-run'  , null, InputOption::VALUE_NONE    , 'Outputs the operations but will not save any files (implicitly enables --verbose)' ),
 			new InputOption( 'no-log'   , null, InputOption::VALUE_NONE    , 'Turns off logging to file' ),
 			new InputOption( 'no-debug' , null, InputOption::VALUE_NONE    , 'Turns off debug info. Also resets APP_DEBUG environment variable' ),

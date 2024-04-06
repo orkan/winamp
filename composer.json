@@ -21,6 +21,7 @@
 		}
 	],
 	"require": {
+		"composer-runtime-api": "^2.2",
 		"symfony/console": "^5.2",
 		"symfony/monolog-bridge": "^5.2",
 		"james-heinrich/getid3": "^1.9",
@@ -46,8 +47,8 @@
 	],
 	"extra": {
 		"branch-alias": {
-			"dev-master": "5.4.x-dev",
-			"dev-develop": "5.x-dev"
+			"dev-master": "6.0.x-dev",
+			"dev-develop": "6.x-dev"
 		}
 	}
 }

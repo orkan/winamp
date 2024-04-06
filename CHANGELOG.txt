@@ -1,11 +1,26 @@
 ===================================================================================================
+v6.0.0
+Renamed CMD line switches:
+---------------
+user-cfg:  u > c
+code-page: c > p
+
+===================================================================================================
 v5.0.0
-Class rename:  PlaylistBuilder         > Playlist
-Method rename: PlaylistBuilder::add()  > Playlist::insert()
-Method rename: PlaylistBuilder::path() > Playlist::itemUpdate()
-Method update:
-  - Playlist::sort( string $sort = 'name', string $dir = 'asc' )
-  + Playlist::sort( string $sort = 'name', bool $asc = true )
-Callback update: Playlist::cfg( 'onLoad' => func(...args) ):
-  - func( int $current, int $count, string $path, bool $isTrack )
-  + func( int $current, int $count, string $path, ?array $item )
+Renamed classes:
+---------------
+PlaylistBuilder > Playlist
+
+Renamed methods:
+---------------
+Playlist::add()  > Playlist::insert()
+Playlist::path() > Playlist::itemUpdate()
+
+Updated methods:
+---------------
+Playlist::sort(,string $dir = 'asc' ) > Playlist::sort(,bool $asc = true )
+
+Updated callbacks:
+---------------
+Playlist::cfg(onLoad): func(,,,bool $isTrack) > func(,,,?array $item)
+---------------
