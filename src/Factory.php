@@ -98,16 +98,20 @@ class Factory extends \Orkan\Factory
 		 * [bar_usleep]
 		 * ProgressBar slow down
 		 *
+		 * [bar_debug]
+		 * Progress bar slow down with [Enter]
+		 *
 		 * @formatter:off */
 		return [
 			'log_header'      => true,
 			'log_verbose'     => 'NOTICE',
-			'bar_verbose'     => OutputInterface::VERBOSITY_VERBOSE,
+			'bar_verbose'     => OutputInterface::VERBOSITY_VERBOSE, // -v, INFO
 			'bar_default'     => '[%bar%] %current%/%max% %message%',
 			'bar_loading'     => '- loading [%bar%] %current%/%max% %message%',
 			'bar_char'        => '|',
 			'bar_char_empty'  => '.',
-			'bar_usleep'      => getenv( 'APP_BAR_USLEEP' ) ?: 0,
+			'bar_usleep'      => getenv( 'BAR_USLEEP' ) ?: 0,
+			'bar_debug'       => getenv( 'BAR_DEBUG' ) ?: false,
 		];
 		/* @formatter:on */
 	}
@@ -181,7 +185,8 @@ class Factory extends \Orkan\Factory
 		$this->Bar->setMessage( '' ); // Get rid of %message% string displayed in case there are 0 steps performed
 		$this->Bar->setRedrawFrequency( 1 ); // redraws the screen every each iteration
 		$this->Bar->start();
-		$this->sleep( 'bar_usleep' ); // give time to show step [1]
+		DEBUG && $this->sleep( 'bar_usleep' ); // give time to show step [1]
+		DEBUG && $this->get( 'bar_debug' ) && $this->Utils->stdin(); // Hit [Enter] to continue...
 	}
 
 	/**

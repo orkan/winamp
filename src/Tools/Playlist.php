@@ -51,6 +51,11 @@ class Playlist
 	 */
 	private $isLoaded = false;
 
+	/**
+	 * Wether the playlist was already shuffled?
+	 */
+	private $isShuffled = false;
+
 	/* @formatter:off */
 
 	/**
@@ -128,7 +133,7 @@ class Playlist
 			'bom'      => pack( 'H*', 'EFBBBF' ),
 			'cp'       => 'ASCII',
 			'tags'     => false,
-			'onLoad'   => '',
+			'onLoad'   => null,
 		];
 		/* @formatter:on */
 	}
@@ -587,8 +592,17 @@ class Playlist
 		$this->load();
 
 		$changed = $this->Utils->arrayShuffle( $this->main );
+		$this->isShuffled = true;
 		$this->isDirty |= $changed;
 
 		return $changed;
+	}
+
+	/**
+	 * Did playlist was shuffled?
+	 */
+	public function isShuffled(): bool
+	{
+		return $this->isShuffled;
 	}
 }

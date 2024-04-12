@@ -5,7 +5,6 @@
  */
 namespace Orkan\Winamp\Tools;
 
-use Orkan\Winamp\Application;
 use Orkan\Winamp\Factory;
 
 /**
@@ -16,8 +15,8 @@ use Orkan\Winamp\Factory;
 class Exporter extends \Orkan\Application
 {
 	const APP_NAME = 'Winamp Export Media Library';
-	const APP_VERSION = '6.0.1';
-	const APP_DATE = 'Sat, 06 Apr 2024 15:44:19 +02:00';
+	const APP_VERSION = '7.0.0';
+	const APP_DATE = 'Sat, 13 Apr 2024 01:09:38 +02:00';
 
 	/**
 	 * @link https://patorjk.com/software/taag/#p=display&v=0&f=Ivrit&t=CLI%20App
@@ -40,7 +39,7 @@ class Exporter extends \Orkan\Application
 	 * Loaded plylists from cfg.
 	 * @var Playlist[]
 	 */
-	protected $playlists = [];
+	protected $playlists;
 
 	/**
 	 * Special playlist to store all exported tracks.
@@ -126,12 +125,11 @@ class Exporter extends \Orkan\Application
 	private function defaults(): array
 	{
 		/**
-		 * [cmd_title]
-		 * CMD window title
-		 * @see \Orkan\Application::cmdTitle()
+		 * [winamp_dir]
+		 * Path to Winamp ML dir
 		 *
 		 * [winamp_xml]
-		 * Winamp playlists XML file name (def. playlists.xml)
+		 * Playlists XML file in cfg[winamp_dir] used to resolve playlist names from cfg[extra]
 		 *
 		 * [playlist_all]
 		 * Playlist file name holding all tracks from all playlists.
@@ -139,19 +137,10 @@ class Exporter extends \Orkan\Application
 		 * [manifest]
 		 * File holding list of all files created by previus run to make diff lists
 		 *
-		 * [auto_dirs]
-		 * Auto create paths: output_dir, export_dir
-		 *
 		 * [total_size]
 		 * Total size limit (eg. 44444, 120M, 3.4G)
 		 * Tip: Use 0 to set no limit
 		 * Tip: Prepend '?' or use empty string for user prompt
-		 *
-		 * [total_size_str]
-		 * String representation of cfg[total_size] or "no limit" if 0
-		 *
-		 * [winamp_dir]
-		 * Path to Winamp ML dir
 		 *
 		 * [output_dir]
 		 * Output dir for Playlists
@@ -169,15 +158,8 @@ class Exporter extends \Orkan\Application
 		 * Path mapping directory separator
 		 *
 		 * [playlists]
-		 * Array(
-		 *   [
-		 *     'file'    => 'plf_FAV.m3u8', // Input playlist name
-		 *     'name'    => 'Ulubione',     // Output playlist name
-		 *     'save'    => 4,              // How many copies? Eg. Ulubione1.m3u8, Ulubione2.m3u8, etc...
-		 *     'limit'   => 100,            // Limit playlist entries?
-		 *     'shuffle' => true,           // Shuffle playlist before applying [limit]?
-		 *   ],
-		 * )
+		 * Configure playlists to import
+		 * @see Exporter::normalize()
 		 *
 		 * [extra]
 		 * Extra playlists to add AS-IS without limit restrictions (unconditionally)
@@ -185,18 +167,16 @@ class Exporter extends \Orkan\Application
 		 *
 		 * @formatter:off */
 		return [
-			'cmd_title'       => 'Winamp Export',
+			'app_title'       => 'Winamp Export',
 			'app_usage'       => 'export.php [options]',
-			'app_opts'    => [
+			'app_opts'        => [
 				'config' => [ 'short' => 'c:', 'long' => 'config:', 'desc' => 'Configuration file' ],
 			],
 			'log_reset'       => true,
 			'winamp_xml'      => 'playlists.xml',
 			'manifest'        => 'export.json',
 			'playlist_all'    => 'Export',
-			'auto_dirs'       => false,
 			'total_bytes'     => '',
-			'total_size_str'  => '',
 			'winamp_dir'      => '',
 			'output_dir'      => '',
 			'export_dir'      => '',
@@ -204,7 +184,6 @@ class Exporter extends \Orkan\Application
 			'export_sep'      => '/',
 			'playlists'       => [],
 			'extra'           => [],
-			'bar_loading'     => '- loading [%bar%] %current%/%max% %message%',
 			'bar_adding'      => '- adding [%bar%] %current%/%max% %message%',
 			'bar_analyzing'   => '- analyze [%bar%] %current%/%max% %message%',
 			'bar_exporting'   => '- copying [%bar%] %current%/%max% %message%',
@@ -237,13 +216,13 @@ class Exporter extends \Orkan\Application
 		];
 		/* @formatter:on */
 
-		// No tracks loaded yet
-		if ( !$this->stats['items'] ) {
-			return $out;
-		}
-
 		// Dont overflow!
 		$this->stats['item'] = min( $this->stats['item'] + 1, $this->stats['items'] );
+
+		// No items loaded yet or progress finished
+		if ( !$this->stats['items'] || !$this->stats['bytes'] ) {
+			return $out;
+		}
 
 		$out['byte_done'] = $this->stats['asize'] * $this->stats['item'];
 		$out['cent_done'] = 100 / $this->stats['bytes'] * $out['byte_done'];
@@ -263,18 +242,19 @@ class Exporter extends \Orkan\Application
 	 * - use pl[shuffle] and pl[limit]
 	 * - validate tracks
 	 *
-	 * Two separate data counters are initialized and later checked for data integrity:
+	 * TIP:
+	 * Two separate data counters are initialized and later checked for data integrity
 	 * @see Exporter::$PlaylistAll
 	 * @see Exporter::$progress
 	 *
 	 * @throws \RuntimeException On Missing playlist or track file
 	 *
-	 * @param  array $pl cfg[playlists] definition
+	 * @param array $pl cfg[playlists] definition
 	 */
 	protected function playlist( array $pl ): ?Playlist
 	{
-		$pl = $this->plNormalize( $pl );
-		$total = $pl['istotal'] ? $this->Factory->get( 'total_bytes' ) : 0;
+		$pl = $this->normalize( $pl );
+		$total = $this->Factory->get( 'total_bytes' );
 
 		$m3u = $this->Factory->get( 'winamp_dir' ) . '/' . $pl['file'];
 		$exp = $this->Factory->get( 'export_dir' );
@@ -305,34 +285,24 @@ class Exporter extends \Orkan\Application
 
 		// -------------------------------------------------------------------------------------------------------------
 		// New Playlist
-		$Playlist = $this->Factory->Playlist( [ 'file' => $m3u, 'onLoad' => function ( $current, $count, $line, $item ) {
-			if ( 1 === $current ) {
-				$this->Factory->barNew( $count, 'bar_loading' ); // count == lines, not tracks!
-			}
-			if ( $item ) {
-				$this->Factory->barInc( $item['name'] );
-			}
-			if ( $current === $count ) {
-				$this->Factory->barDel();
-			}
-		} ] );
+		$Playlist = $this->Factory->Playlist( [ 'file' => $m3u, 'onLoad' => [ $this->Factory, 'onPlaylistLoad' ] ] );
 		$Playlist->load();
-		$Playlist->cfg( 'onLoad', false );
+		$Playlist->cfg( 'onLoad', null );
 
 		$Playlist->pl = $pl;
 		$Playlist->name = $pl['name'];
 		$count = $Playlist->count();
-		$this->Logger->notice( "- found {$count} tracks" );
+		$this->Logger->info( "- found {$count} tracks" );
 
 		if ( $pl['shuffle'] ) {
-			$this->Logger->notice( '- shuffle...' );
+			$this->Logger->info( '- shuffle...' );
 			$Playlist->shuffle();
 		}
 
 		if ( $pl['limit'] && $pl['limit'] < $count ) {
 			$Playlist->reduce( $pl['limit'] );
 			$count = $Playlist->count();
-			$this->Logger->notice( "- reduced to {$count} tracks (user limit)" );
+			$this->Logger->info( "- reduced to {$count} tracks (user limit)" );
 		}
 
 		$this->Factory->barNew( $count, 'bar_adding' );
@@ -360,7 +330,10 @@ class Exporter extends \Orkan\Application
 			// ---------------------------------------------------------------------------------------------------------
 			// Is file exists?
 			if ( !$stat = @stat( $item['path'] ) ) {
-				throw new \RuntimeException( sprintf( 'Missing track "%s". Please "[Rebuild] Winamp ML" first!', $item['orig'] ) );
+				throw new \RuntimeException( sprintf(
+					/**/ 'Missing track "%s" in playlist [%s]. Please "[Rebuild] Winamp ML" first!',
+					/**/ $item['orig'],
+					/**/ $pl['name'] ) );
 			}
 
 			// ---------------------------------------------------------------------------------------------------------
@@ -402,7 +375,7 @@ class Exporter extends \Orkan\Application
 		$this->statsRebuild();
 
 		/* @formatter:off */
-		$this->Factory->notice( 'Tracks: {items} | {bytes} | ~{asize}', [
+		$this->Factory->info( 'Tracks: {items} | {bytes} | ~{asize}', [
 			'{items}' => $this->stats['items'],
 			'{bytes}' => $this->Utils->byteString( $this->stats['bytes'] ),
 			'{asize}' => $this->Utils->byteString( $this->stats['asize'] ),
@@ -428,22 +401,21 @@ class Exporter extends \Orkan\Application
 	 */
 	protected function playlistsLoad(): void
 	{
-		if ( $this->playlists ) {
-			return;
-		}
+		$this->playlists = [];
 
+		/*
+		 * Load playlists in defined order:
+		 * 1. cfg[extra]
+		 * 2. cfg[playlists]
+		 */
 		/* @formatter:off */
 		$pls = array_merge(
-			$this->Factory->get( 'playlists', [] ) ,
 			$this->plsFromNames( $this->Factory->get( 'extra', [] ) ),
+			$this->Factory->get( 'playlists', [] ) ,
 		);
 		/* @formatter:on */
 
-		$pls = array_map( [ $this, 'plNormalize' ], $pls );
-
-		// Proccess playlists without total size restrictions first!
-		$this->Utils->arraySortMulti( $pls, 'istotal' );
-
+		// Truncate defined playlists if limit was reached
 		foreach ( $pls as $pl ) {
 			if ( $Playlist = $this->playlist( $pl ) ) {
 				$this->playlists[] = $Playlist;
@@ -487,9 +459,8 @@ class Exporter extends \Orkan\Application
 				if ( $name === $pl['title'] ) {
 					/* @formatter:off */
 					$out[$name] = [
-						'name'    => $pl['title'],
-						'file'    => $pl['filename'],
-						'istotal' => false,
+						'name' => $pl['title'],
+						'file' => $pl['filename'],
 					];
 					/* @formatter:on */
 				}
@@ -498,7 +469,7 @@ class Exporter extends \Orkan\Application
 
 		// Check missing
 		if ( $miss = array_diff( array_keys( $names ), array_keys( $out ) ) ) {
-			throw new \InvalidArgumentException( sprintf( 'Unable to locate playlist name: [%s]', implode( '], [', $miss ) ) );
+			throw new \InvalidArgumentException( sprintf( 'Unable to locate playlists: %s', implode( ', ', $miss ) ) );
 		}
 
 		return $out;
@@ -506,26 +477,20 @@ class Exporter extends \Orkan\Application
 
 	/**
 	 * Normalize cfg[playlists] definition.
+	 *
+	 * @return array (
+	 * [name]    => string Playlist save as name eg. {name}_1.m3u
+	 * [shuffle] => bool   Shuffle tracks before adding to total limit?
+	 * [save]    => int    How many shuffled copies to save?
+	 * [limit]   => int    Max tracks to import
+	 * )
 	 */
-	protected static function plNormalize( array $pl ): array
+	protected static function normalize( array $pl ): array
 	{
-		/* @formatter:off */
-		$pl = array_merge([
-			'name'    => 'Unknown',
-			'shuffle' => false,
-			'save'    => 1,
-			'limit'   => 0,
-			'istotal' => true,
-		], $pl );
-		/* @formatter:on */
-
-		$pl['limit'] = (int) $pl['limit'];
-		$pl['save'] = (int) $pl['save'];
-		$pl['shuffle'] = (bool) $pl['shuffle'];
-
-		// Never shuffle cfg[extra] playlists
-		// Always shuffle multi generated playlists
-		$pl['shuffle'] = $pl['shuffle'] ?: $pl['save'] > 1;
+		$pl['name'] = strval( $pl['name'] ?? 'Unknown');
+		$pl['limit'] = intval( $pl['limit'] ?? 0);
+		$pl['save'] = intval( $pl['save'] ?? 1);
+		$pl['shuffle'] = boolval( $pl['shuffle'] ?? false);
 
 		return $pl;
 	}
@@ -585,9 +550,9 @@ class Exporter extends \Orkan\Application
 
 		// No manifest found? Clear output dir to get rid of all untracked files
 		if ( !is_file( $file = $dir . '/' . $this->Factory->get( 'manifest' ) ) ) {
-			$get = $this->Utils->prompt( 'Manifest file not found! Clear export dir? y/[n]: ', '', 'N' );
+			$get = $this->Utils->prompt( 'Manifest file not found! Clear export dir? [y/N/q]: ', 'N', 'Q' );
 			if ( 'Y' === strtoupper( $get ) ) {
-				$this->Logger->notice( '- clearing export dir...' );
+				$this->Logger->info( '- clearing export dir...' );
 				$this->Utils->dirClear( $dir );
 			}
 			return false;
@@ -599,22 +564,23 @@ class Exporter extends \Orkan\Application
 			$this->stats[$type]['missing'] = [];
 			$this->stats[$type]['updated'] = [];
 			$this->stats[$type]['deleted'] = [];
+			$this->stats[$type]['skipped'] = [];
 		}
 
 		// -------------------------------------------------------------------------------------------------------------
 		// Check old manifest:
 		$manifest = json_decode( file_get_contents( $file ), true );
 
-		$bytes = $items = $invalid = $missing = $updated = $deleted = 0;
+		$bytes = $invalid = $missing = $updated = $deleted = $skipped = 0;
 		$this->Factory->barNew( count( $manifest ), 'bar_analyzing' );
 
 		foreach ( $manifest as $id => $old ) {
-			$size = 0;
+			$size = null;
 			$newSrc = $this->manifest[$type][$id]['src'] ?? null;
 			$newDst = $this->manifest[$type][$id]['dst'] ?? null;
 			$oldDst = $old['dst'];
 
-			$this->Factory->barInc( basename( dirname( $oldDst ) ) . '/' . basename( $oldDst ) );
+			$this->Factory->barInc( $this->Utils->strCut( basename( $oldDst ), 60 ) );
 
 			// Check manifest file integrity
 			if ( $newDst && $id !== $this->manifestId( $oldDst ) ) {
@@ -665,9 +631,10 @@ class Exporter extends \Orkan\Application
 				DEBUG && $this->stats[$type]['deleted'][] = $oldDst;
 			}
 			// File won't be copied over. Reduce totals!
-			elseif ( $size ) {
+			elseif ( null !== $size ) {
 				$bytes += $size;
-				$items++;
+				$skipped++;
+				DEBUG && $this->stats['skipped'][] = $oldDst;
 			}
 		}
 
@@ -675,20 +642,21 @@ class Exporter extends \Orkan\Application
 
 		// -------------------------------------------------------------------------------------------------------------
 		// Summary:
+		$skipped && $this->Logger->info( "- skipped {$skipped} files" );
 		$invalid && $this->Logger->info( "- invalid {$invalid} files" );
 		$missing && $this->Logger->info( "- missing {$missing} files" );
 		$updated && $this->Logger->info( "- updated {$updated} files" );
 		$deleted && $this->Logger->info( "- deleted {$deleted} files" );
 
-		if ( $items ) {
-			$this->stats['items'] -= $items; // might be 0 items!
+		if ( $skipped ) {
+			$this->stats['items'] -= $skipped; // might be 0 items!
 			$this->stats['bytes'] -= $bytes;
 			$this->statsRebuild();
 
 			/* @formatter:off */
 			$this->Factory->info( '- saved {bytes} by not exporting {items} matched files.', [
+				'{items}' => $skipped,
 				'{bytes}' => $this->Utils->byteString( $bytes ),
-				'{items}' => $items,
 			]);
 			/* @formatter:on */
 		}
@@ -728,7 +696,8 @@ class Exporter extends \Orkan\Application
 		$this->isExport = (bool) $this->Factory->get( 'export_dir' );
 
 		$this->PlaylistAll = $this->Factory->Playlist(); // dont link with file yet!
-		$this->PlaylistAll->pl = $this->plNormalize( [ 'name' => $this->Factory->get( 'playlist_all' ) ] );
+		$this->PlaylistAll->name = $this->Factory->get( 'playlist_all' );
+		$this->PlaylistAll->pl = $this->normalize( [ 'name' => $this->PlaylistAll->name ] );
 
 		if ( !is_dir( $dir = $this->Factory->get( 'winamp_dir' ) ) ) {
 			throw new \InvalidArgumentException( sprintf( 'Winamp ML dir "%s" not found at "%s". Check cfg[winamp_dir]',
@@ -755,7 +724,7 @@ class Exporter extends \Orkan\Application
 		}
 
 		$this->cmdTitle();
-		$this->Logger->notice( 'Done.' );
+		$this->Logger->info( 'Done.' );
 	}
 
 	/**
@@ -773,7 +742,7 @@ class Exporter extends \Orkan\Application
 		$dirs[] = [ 'output_dir', 'Playlists dir' ];
 		$this->isExport && $dirs[] = [ 'export_dir', 'Music dir' ];
 		foreach ( $dirs as $v ) {
-			$Prompt->importPath( $v[0], $v[1], $this->Factory->get( 'auto_dirs' ) );
+			$Prompt->importPath( $v[0], $v[1] );
 		}
 		foreach ( $dirs as $v ) {
 			$this->Logger->info( $v[1] . ': ' . $this->Factory->get( $v[0] ) );
@@ -787,12 +756,10 @@ class Exporter extends \Orkan\Application
 	 */
 	protected function plsSummary()
 	{
+		$this->Factory->info( 'Playlist: [%s]', $this->PlaylistAll->name );
+
 		/* @formatter:off */
-		$this->Factory->notice([
-			'Playlist: [{name}] - all tracks summary',
-			'Tracks: {items} ({dupes} dupes) | {bytes} | ~{asize}',
-			],[
-			'{name}' => $this->PlaylistAll->pl['name'],
+		$this->Factory->notice( 'Summary: {items} tracks | {dupes} dupes | {bytes} | ~{asize}', [
 			'{items}' => $this->stats['items'],
 			'{bytes}' => $this->Utils->byteString( $this->stats['bytes'] ),
 			'{asize}' => $this->Utils->byteString( $this->stats['asize'] ),
@@ -811,6 +778,7 @@ class Exporter extends \Orkan\Application
 	{
 		$this->manifestUnlink( 'output' );
 
+		$done = 0;
 		foreach ( $this->playlists as $Playlist ) {
 			for ( $i = 0; $i < $Playlist->pl['save']; $i++ ) {
 				$name = $Playlist->pl['name'];
@@ -818,12 +786,15 @@ class Exporter extends \Orkan\Application
 					$name .= sprintf( '_%0' . ( floor( $Playlist->pl['save'] / 10 ) + 1 ) . 'd', $i + 1 );
 				}
 				$file = sprintf( '%s/%s.m3u8', $this->Factory->get( 'output_dir' ), $name );
-				$this->playlistWrite( $Playlist, $file );
+				$this->playlistWrite( $Playlist, $file, $i > 0 );
+				$done++;
 			}
 		}
-		$file = sprintf( '%s/%s.m3u8', $this->Factory->get( 'output_dir' ), $this->PlaylistAll->pl['name'] );
+		$file = sprintf( '%s/%s.m3u8', $this->Factory->get( 'output_dir' ), $this->PlaylistAll->name );
 		$this->playlistWrite( $this->PlaylistAll, $file );
+		$done++;
 
+		$this->Factory->notice( 'Output: %s playlists', $done );
 		$this->manifestWrite( 'output' );
 
 		// Release memory
@@ -833,31 +804,32 @@ class Exporter extends \Orkan\Application
 	/**
 	 * Save playlist in output dir.
 	 */
-	protected function playlistWrite( Playlist $Playlist, string $file )
+	protected function playlistWrite( Playlist $Playlist, string $file, bool $shuffle = false )
 	{
 		/* @formatter:off */
-		$header = sprintf(
-			'# %1$s' . "\n" .
-			'# %6$s v%7$s' . "\n" .
-			'# %5$s' . "\n" .
-			'# Playlist: %2$s | %3$s | %4$s tracks' . "\n" .
-			"\n",
-			/*1*/ $this->Factory->get( 'cmd_title' ),
-			/*2*/ $Playlist->pl['name'],
-			/*3*/ basename( $file ),
-			/*4*/ $Playlist->count(),
-			/*5*/ date( 'r', time() ),
-			/*6*/ Application::APP_NAME,
-			/*7*/ Application::APP_VERSION,
-		);
+		$header = strtr( <<<HEAD
+			# {app} v{version}
+			# {date}
+			# Playlist: {name} | {file} | {count} tracks
+			HEAD
+			, [
+				'{app}'     => $this->Factory->get( 'app_title'),
+				'{version}' => static::APP_VERSION,
+				'{date}'    => date( 'r', time() ),
+				'{name}'    => $Playlist->pl['name'],
+				'{file}'    => basename( $file ),
+				'{count}'   => $Playlist->count(),
+			]);
 		/* @formatter:on */
 
-		$Playlist->pl['shuffle'] && $Playlist->shuffle();
+		$shuffle && $Playlist->shuffle();
+		$header .= $Playlist->isShuffled() ? ' | shuffled' : ''; // might be already shufled during loading
+
 		$tracks = $Playlist->paths( $this->isExport ? 'map' : 'path' );
-		file_put_contents( $file, $header . implode( "\n", $tracks ) . "\n" );
+		file_put_contents( $file, $header . "\n\n" . implode( "\n", $tracks ) . "\n" );
 
 		$this->manifestInsert( 'output', $file );
-		$this->Factory->notice( '- save [{name}] "{path}"', [ '{name}' => $Playlist->pl['name'], '{path}' => realpath( $file ) ] );
+		$this->Factory->info( '- save [{name}] "{path}"', [ '{name}' => $Playlist->pl['name'], '{path}' => realpath( $file ) ] );
 	}
 
 	/**
@@ -875,7 +847,7 @@ class Exporter extends \Orkan\Application
 		$this->manifestWrite( 'export' );
 
 		/* @formatter:off */
-		$this->Factory->notice( 'Copy: {items} tracks | {bytes}', [
+		$this->Factory->notice( 'Export: {items} tracks | {bytes}', [
 			'{items}' => $this->stats['items'],
 			'{bytes}' => $this->Utils->byteString( $this->stats['bytes'] ),
 		]);
@@ -889,15 +861,16 @@ class Exporter extends \Orkan\Application
 				continue;
 			}
 
-			$new['name'] = basename( $new['dst'] );
-			$this->Factory->barInc( $new['name'] );
+			$this->Factory->barInc( $this->Utils->strCut( basename( $new['src'] ), 60 ) );
 			$info = $this->progress();
 
 			/* @formatter:off */
-			$this->cmdTitle( '[{cent_done}%] {time_left} left at {speed_bps}/s', [
+			$this->cmdTitle( '[{cent_done}%] {time_left} left at {speed_bps}/s - {byte_done} done - "{path}"', [
 				'{cent_done}' => floor( $info['cent_done'] ),
 				'{time_left}' => $this->Utils->timeString( $info['time_left'], 0 ),
 				'{speed_bps}' => $this->Utils->byteString( $info['speed_bps'] ),
+				'{byte_done}' => $this->Utils->byteString( $info['byte_done'] ),
+				'{path}'      => $this->Utils->pathCut( $new['src'], 120 ),
 			]);
 			/* @formatter:on */
 

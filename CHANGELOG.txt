@@ -1,4 +1,13 @@
 ===================================================================================================
+v7.0.0
+Renamed config:
+---------------
+Application::cfg[cmd_title]        > app_title
+Prompt::cfg[user_quit]             > prompt_quit
+Prompt::cfg[user_quit_str]         > prompt_quit_str
+Prompt::cfg[auto_dirs]             > prompt_autodirs
+
+===================================================================================================
 v6.0.0
 Renamed CMD line switches:
 ---------------
